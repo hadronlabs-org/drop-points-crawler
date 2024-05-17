@@ -1,5 +1,6 @@
+type Callback = <T>(key: string, result: T) => void;
+
 export const ConcurrentJob = <T>(concurrency: number) => {
-  type Callback = <T>(key: string, result: T) => void;
   let cb: Callback = () => {
     throw new Error('Callback not set');
   };
@@ -11,12 +12,7 @@ export const ConcurrentJob = <T>(concurrency: number) => {
       return { key, result };
     });
 
-
-    
     tryToRunNextTask();
-
-
-
   };
 
   const getActiveCount = () => activeCount;

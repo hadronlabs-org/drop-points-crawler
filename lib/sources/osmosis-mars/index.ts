@@ -1,5 +1,6 @@
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { queryContractOnHeight } from '../query';
+import { queryContractOnHeight } from '../../query';
+import { parse } from 'path';
 
 interface PositionResponse {
   account_id: string;
@@ -18,13 +19,33 @@ interface PositionResponse {
   }[];
 }
 
-const NFT_CONTRACT_ADDRESS =
-  'osmo1450hrg6dv2l58c0rvdwx8ec2a0r6dd50hn4frk370tpvqjhy8khqw7sw09';
-const CREDIT_CONTRACT =
-  'osmo1f2m24wktq0sw3c0lexlg7fv4kngwyttvzws3a3r3al9ld2s2pvds87jqvf';
+const NFT_CONTRACT_ADDRESS = process.env.OSMOSIS_MARS_NFT_CONTRACT;
+if (!NFT_CONTRACT_ADDRESS) {
+  throw new Error('OSMOSIS_MARS_NFT_CONTRACT environment variable not set');
+}
+const CREDIT_CONTRACT = process.env.OSMOSIS_MARS_CREDIT_CONTRACT;
+if (!CREDIT_CONTRACT) {
+  throw new Error('OSMOSIS_MARS_CREDIT_CONTRACT environment variable not set');
+}
+const OSMOSIS_MARS_RPC = process.env.OSMOSIS_MARS_RPC;
+if (!OSMOSIS_MARS_RPC) {
+  throw new Error('OSMOSIS_MARS_RPC environment variable not set');
+}
+
+let client: Tendermint34Client | undefined;
+
+const getClient = async () => {
+  if (!client) {
+    client = await Tendermint34Client.connect(OSMOSIS_MARS_RPC);
+  }
+  return client;
+};
 
 const DEFAULT_LIMIT = 100;
-const PARALLEL_QUERIES = 3;
+const PARALLEL_QUERIES = parseInt(
+  process.env.OSMOSIS_MARS_CONCURRENT || '3',
+  10,
+);
 
 const getAccounts = async (
   client: Tendermint34Client,
@@ -96,6 +117,14 @@ const getAccountOwner = async (
   return data.owner;
 };
 
+export const getLastBlockHeight = async (): Promise<number> => {
+  const client = await getClient();
+  const status = await client.status();
+  return status.syncInfo.latestBlockHeight;
+};
+
+export const getPrice = (): number => 1;
+
 const getAccountInfo = async (
   client: Tendermint34Client,
   height: number,
@@ -107,18 +136,3 @@ const getAccountInfo = async (
   ]);
   return { owner, positions };
 };
-
-const main = async () => {
-  const client = await Tendermint34Client.connect(
-    'https://osmosis-rpc.polkachu.com:443/',
-  );
-  const height = 15555016;
-  const x = await getAccountInfo(client, height, '25248');
-  // console.log(`Getting all tokens at height ${height}`);
-  // const allTokens = await getAllAccounts(client, height);
-  // const lastToken = allTokens[allTokens.length - 1];
-  // console.log(`Last token: ${lastToken}`);
-  console.log(x);
-};
-
-main().catch(console.error);
