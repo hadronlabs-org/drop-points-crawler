@@ -42,12 +42,18 @@ program
       [] as { $source: string; $height: number }[],
     );
     logger.info('Heights: %o', heights);
+    const heightJitter = parseInt(process.env.HEIGHT_JITTER || '0', 10);
     const statement = db.prepare(
       'INSERT INTO tasks (source_id, height, status, batch_id) VALUES ($source, $height, $status, $batch_id)',
     );
     const insert = db.transaction((tasks) => {
       for (const task of heights)
-        statement.run({ ...task, $status: 'new', $batch_id: maxBatchId + 1 });
+        statement.run({
+          $source: task.$source,
+          $height: task.$height - Math.floor(heightJitter * Math.random()),
+          $status: 'new',
+          $batch_id: maxBatchId + 1,
+        });
       return tasks.length;
     });
     const res = insert(heights);
