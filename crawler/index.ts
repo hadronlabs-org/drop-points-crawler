@@ -94,6 +94,9 @@ program
       logger.info('Not all tasks are done');
     }
     logger.debug('All tasks are done');
+    // Calculate points for each user based on all sources
+    // Update user points locally
+    // Update user points in CW20 contract
   });
 
 program

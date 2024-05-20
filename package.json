@@ -4,7 +4,7 @@
     "email": "serg.s.r@gmail.com"
   },
   "scripts": {
-    "start": "bun server/index.ts",
+    "crawl": "bun ./crawler",
     "lint": "bun eslint . --fix"
   },
   "dependencies": {

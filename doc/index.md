@@ -58,3 +58,10 @@ As database we use SQLite3. The schema is as follows:
 |source_id    |string        |source id              |
 |height       |numeric       |Height                 |
 |status       |string        |new/fail/running/done  |
+|created_at   |numberic      |Timestamp  |
+
+## How to run
+* install [bun](https://bun.sh/) (you can use rtx, asdf, etc or install it manually)
+* run `bun install`
+* define `.env` (or just copy `env.sample` to `.env` and adjust it)
+* run `bun run crawl` to start the crawler
