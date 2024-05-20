@@ -22,6 +22,9 @@ export const connect = (createTables = false): Database => {
     db.exec(
       'CREATE INDEX IF NOT EXISTS tasks_source_id_height ON tasks (source_id, height);',
     );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS tasks_source_id_created_at ON tasks (source_id, created_at);',
+    );
   }
   return db;
 };
