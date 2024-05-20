@@ -171,6 +171,7 @@ program
     })();
     // Processing the source
     const sourceObj = sources[source as keyof typeof sources];
+    const price = await sourceObj.getPrice(height);
     await sourceObj.getUsersBalances(height, (balances: UserBalance[]) => {
       //'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
       const query = db.prepare<
@@ -189,9 +190,9 @@ program
       logger.info('Inserted %d user balances', res);
     });
     // Update the status of the task to "ready"
-    db.exec<[string, number, number]>(
-      'UPDATE tasks SET status = "ready" WHERE source_id = ? AND height = ? AND batch_id = ?',
-      [source, height, batchId],
+    db.exec<[number, string, number, number]>(
+      'UPDATE tasks SET status = "ready", price=? WHERE source_id = ? AND height = ? AND batch_id = ?',
+      [price, source, height, batchId],
     );
     // logger.info('Processing source %s', source);
   });

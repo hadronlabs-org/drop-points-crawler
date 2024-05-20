@@ -6,6 +6,8 @@ import {
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
+import { logger } from '../../logger';
+import { log } from 'console';
 
 const DENOM = process.env.NEUTRON_DENOM;
 if (!DENOM) {
@@ -41,6 +43,7 @@ const getDenomBalances = async (
   };
   const data = QueryDenomOwnersRequest.encode(request).finish();
   const response = await client.abciQuery({ path, data, height });
+  logger.trace('Got response %o', response);
   if (response.code !== 0) {
     throw new Error(
       `Tendermint query error: ${response.log} Code: ${response.code}`,
@@ -51,6 +54,7 @@ const getDenomBalances = async (
     (acc, one) => ({ ...acc, [one.address]: one.balance.amount }),
     {},
   );
+  logger.debug('Got %d balances', Object.keys(out).length);
   return { results: out, nextKey: balances.pagination?.nextKey };
 };
 
@@ -80,10 +84,11 @@ export const getUsersBalances = async (
         balance,
       })),
     );
-    console.log('>>', newNextKey);
+    logger.debug('Got next key %s', newNextKey);
     if (!newNextKey) {
       break;
     }
     nextKey = newNextKey;
   } while (nextKey !== undefined && nextKey.length > 0);
+  logger.debug('Finished fetching balances for neutron source');
 };
