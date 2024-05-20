@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { connect } from '../db';
 import { logger } from '../lib/logger';
 import sources from '../lib/sources';
+import { UserBalance } from '../types/userBalance';
 
 const program = new Command();
 const db = connect(true);
@@ -117,12 +118,82 @@ program
   });
 
 program
-  .command('process <source>')
+  .command('crawl')
+  .argument('<source>', 'source to crawl')
   .description('Process the specified source')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
-  .action((source) => {
-    // Logic for processing the source
-    console.log(`Processing source: ${source}`);
+  .action(async (source: string, options) => {
+    // Get the batch ID and height of the task
+    const { batchId, height } = (() => {
+      if (options.batch_id) {
+        const batchId = parseInt(options.batch_id, 10);
+        if (isNaN(batchId)) {
+          logger.error('Invalid batch ID %s', options.batch_id);
+          throw new Error('Invalid batch ID');
+        }
+        const row = db
+          .query<
+            { height: number },
+            [number, string]
+          >('SELECT height FROM tasks WHERE batch_id = ? AND source_id = ? AND status = "new" ORDER BY height ASC LIMIT 1')
+          .get(batchId, source);
+        if (!row) {
+          logger.info('No tasks found for batch_id %s', options.batch_id);
+          throw new Error('No tasks found');
+        }
+        return { batchId, height: row.height };
+      } else {
+        const enabledSources = process.env.ENABLED_SOURCES?.split(',') || [];
+        if (!enabledSources.length) {
+          logger.error(
+            'No active sources found, please define ENABLED_SOURCES',
+          );
+          throw new Error(
+            'No enabled sources found, please define ENABLED_SOURCES',
+          );
+        }
+        if (!enabledSources.includes(source)) {
+          logger.error('Source %s is not enabled', source);
+          throw new Error(`Source ${source} not found`);
+        }
+        const row = db
+          .query<
+            { height: number; batch_id: number },
+            string
+          >('SELECT height, batch_id FROM tasks WHERE source_id = ? AND status = "new" ORDER BY batch_id ASC LIMIT 1')
+          .get(source);
+        if (!row) {
+          logger.info('No tasks found for source %s', source);
+          throw new Error('No tasks found');
+        }
+        return { batchId: row.batch_id, height: row.height };
+      }
+    })();
+    // Processing the source
+    const sourceObj = sources[source as keyof typeof sources];
+    await sourceObj.getUsersBalances(height, (balances: UserBalance[]) => {
+      //'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
+      const query = db.prepare<
+        unknown,
+        [string, string, number, number, string]
+      >(
+        'INSERT INTO user_data (source_id, address, height, batch_id, balance) VALUES (?, ?, ?, ?, ?);',
+      );
+      const insert = db.transaction((balances) => {
+        for (const balance of balances) {
+          query.run(source, balance.address, height, batchId, balance.balance);
+        }
+        return balances.length;
+      });
+      const res = insert(balances);
+      logger.info('Inserted %d user balances', res);
+    });
+    // Update the status of the task to "ready"
+    db.exec<[string, number, number]>(
+      'UPDATE tasks SET status = "ready" WHERE source_id = ? AND height = ? AND batch_id = ?',
+      [source, height, batchId],
+    );
+    // logger.info('Processing source %s', source);
   });
 
 program.parse(process.argv);
