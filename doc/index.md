@@ -62,9 +62,9 @@ As database we use SQLite3. The schema is as follows:
 ### Tasks
 |field|type|description|
 |---|---|---|
-|source_id    |string        |source id              |
-|height       |numeric       |Height                 |
-|status       |string        |new/fail/running/done  |
+|source_id    |string        |source id                        |
+|height       |numeric       |Height                           |
+|status       |string        |new/fail/running/ready/processed  |
 |batch_id   |numberic        |id of batch  |
 
 ## How to run

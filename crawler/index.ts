@@ -70,10 +70,10 @@ program
         'No enabled sources found, please define ENABLED_SOURCES',
       );
     }
-    const createdAt = (() => {
+    const batchId = (() => {
       if (options.batch_id === undefined) {
         const row = db.query<{ batch_id: number }, null>(
-          'SELECT batch_id FROM tasks WHERE status = "done" ORDER BY height ASC LIMIT 1',
+          'SELECT batch_id FROM tasks WHERE status = "ready" ORDER BY height ASC LIMIT 1',
         );
         if (!row) {
           logger.info('No tasks found');
@@ -81,12 +81,12 @@ program
         if (!row.get(null)) {
           return;
         }
-        const createdAt = row.get(null)?.batch_id;
+        const batchId = row.get(null)?.batch_id;
         row.finalize();
-        return createdAt;
+        return batchId;
       } else {
         const query = db.query<{ batch_id: number }, [number, string]>(
-          'SELECT batch_id FROM tasks WHERE status = "done" AND height = ? AND source_id IN (?) ORDER BY batch_id ASC LIMIT 1',
+          'SELECT batch_id FROM tasks WHERE status = "ready" AND height = ? AND source_id IN (?) ORDER BY batch_id ASC LIMIT 1',
         );
         const row = query.get(options.batch_id, enabledSources.join(', '));
         if (!row) {
@@ -96,21 +96,24 @@ program
         return row?.batch_id;
       }
     })();
-    if (!createdAt) {
+    if (!batchId) {
       return;
     }
-    logger.info('Finishing task for batch_id %s', createdAt);
+    logger.info('Finishing task for batch_id %s', batchId);
     const query = db.query<{ cnt: number }, number>(
-      'SELECT count(*) as cnt FROM tasks WHERE batch_id = ? AND status = "done"',
+      'SELECT count(*) as cnt FROM tasks WHERE batch_id = ? AND status = "ready"',
     );
-    const cnt = query.get(createdAt)?.cnt;
+    const cnt = query.get(batchId)?.cnt;
     if (cnt !== enabledSources.length) {
-      logger.info('Not all tasks are done');
+      logger.info('Not all tasks are ready');
     }
-    logger.debug('All tasks are done');
+    logger.debug('All tasks are ready');
     // Calculate points for each user based on all sources
     // Update user points locally
     // Update user points in CW20 contract
+    db.prepare<null, number>(
+      'UPDATE tasks SET status="processed" WHERE batch_id=$batch_id',
+    ).run(batchId);
   });
 
 program
