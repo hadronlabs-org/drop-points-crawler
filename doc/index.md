@@ -58,7 +58,7 @@ As database we use SQLite3. The schema is as follows:
 |source_id    |string        |source id              |
 |height       |numeric       |Height                 |
 |status       |string        |new/fail/running/done  |
-|created_at   |numberic      |Timestamp  |
+|batch_id   |numberic        |id of batch  |
 
 ## How to run
 * install [bun](https://bun.sh/) (you can use rtx, asdf, etc or install it manually)

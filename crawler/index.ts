@@ -12,11 +12,10 @@ if (!process.env.LOG_LEVEL) {
 }
 
 program
-  .command('prepare_tasks')
+  .command('prepare')
   .description('Prepare tasks for processing sources')
   .action(async () => {
     const enabledSources = process.env.ENABLED_SOURCES?.split(',') || [];
-    const currentTs = Math.floor(Date.now() / 1000);
     if (!enabledSources.length) {
       throw new Error('No active sources found, please define ENABLED_SOURCES');
     }
@@ -28,6 +27,15 @@ program
       }
       return source.getLastBlockHeight();
     });
+
+    const maxBatchId =
+      db
+        .query<
+          { batch_id: number },
+          null
+        >('SELECT max(batch_id) as batch_id FROM tasks')
+        .get(null)?.batch_id || 0;
+
     const results = await Promise.all(getHeights);
     const heights = enabledSources.reduce(
       (acc, key, idx) => [...acc, { $source: key, $height: results[idx] }],
@@ -35,11 +43,11 @@ program
     );
     logger.info('Heights: %o', heights);
     const statement = db.prepare(
-      'INSERT INTO tasks (source_id, height, status, created_at) VALUES ($source, $height, $status, $created_at)',
+      'INSERT INTO tasks (source_id, height, status, batch_id) VALUES ($source, $height, $status, $batch_id)',
     );
     const insert = db.transaction((tasks) => {
       for (const task of heights)
-        statement.run({ ...task, $status: 'new', $created_at: currentTs });
+        statement.run({ ...task, $status: 'new', $batch_id: maxBatchId + 1 });
       return tasks.length;
     });
     const res = insert(heights);
@@ -48,8 +56,8 @@ program
 
 program
   .command('finish')
-  .option('-c, --created_at <created_at>', 'Created_at timestamp to finish')
-  .action(async (options) => {
+  .option('-c, --batch_id <batch_id>', 'batch ID  to finish')
+  .action((options) => {
     const enabledSources = process.env.ENABLED_SOURCES?.split(',') || [];
     if (!enabledSources.length) {
       throw new Error(
@@ -57,9 +65,9 @@ program
       );
     }
     const createdAt = (() => {
-      if (options.created_at === undefined) {
-        const row = db.query<{ created_at: number }, null>(
-          'SELECT created_at FROM tasks WHERE status = "done" ORDER BY height ASC LIMIT 1',
+      if (options.batch_id === undefined) {
+        const row = db.query<{ batch_id: number }, null>(
+          'SELECT batch_id FROM tasks WHERE status = "done" ORDER BY height ASC LIMIT 1',
         );
         if (!row) {
           logger.info('No tasks found');
@@ -67,27 +75,27 @@ program
         if (!row.get(null)) {
           return;
         }
-        const createdAt = row.get(null)?.created_at;
+        const createdAt = row.get(null)?.batch_id;
         row.finalize();
         return createdAt;
       } else {
-        const query = db.query<{ created_at: number }, [number, string]>(
-          'SELECT created_at FROM tasks WHERE status = "done" AND height = ? AND source_id IN (?) ORDER BY created_at ASC LIMIT 1',
+        const query = db.query<{ batch_id: number }, [number, string]>(
+          'SELECT batch_id FROM tasks WHERE status = "done" AND height = ? AND source_id IN (?) ORDER BY batch_id ASC LIMIT 1',
         );
-        const row = query.get(options.created_at, enabledSources.join(', '));
+        const row = query.get(options.batch_id, enabledSources.join(', '));
         if (!row) {
-          logger.info('No tasks found for created_at %s', options.created_at);
+          logger.info('No tasks found for batch_id %s', options.batch_id);
         }
         query.finalize();
-        return row?.created_at;
+        return row?.batch_id;
       }
     })();
     if (!createdAt) {
       return;
     }
-    logger.info('Finishing task for created_at %s', createdAt);
+    logger.info('Finishing task for batch_id %s', createdAt);
     const query = db.query<{ cnt: number }, number>(
-      'SELECT count(*) as cnt FROM tasks WHERE created_at = ? AND status = "done"',
+      'SELECT count(*) as cnt FROM tasks WHERE batch_id = ? AND status = "done"',
     );
     const cnt = query.get(createdAt)?.cnt;
     if (cnt !== enabledSources.length) {
@@ -102,6 +110,7 @@ program
 program
   .command('process <source>')
   .description('Process the specified source')
+  .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action((source) => {
     // Logic for processing the source
     console.log(`Processing source: ${source}`);

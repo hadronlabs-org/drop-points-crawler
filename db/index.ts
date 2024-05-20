@@ -17,13 +17,13 @@ export const connect = (createTables = false): Database => {
   if (createTables) {
     logger.debug('Creating table tasks if not exists');
     db.exec(
-      'CREATE TABLE IF NOT EXISTS tasks (source_id TEXT, height INTEGER, status TEXT, created_at INTEGER);',
+      'CREATE TABLE IF NOT EXISTS tasks (source_id TEXT, height INTEGER, status TEXT, batch_id INTEGER);',
     );
     db.exec(
       'CREATE INDEX IF NOT EXISTS tasks_source_id_height ON tasks (source_id, height);',
     );
     db.exec(
-      'CREATE INDEX IF NOT EXISTS tasks_source_id_created_at ON tasks (source_id, created_at);',
+      'CREATE INDEX IF NOT EXISTS tasks_source_id_batch_id ON tasks (source_id, batch_id);',
     );
   }
   return db;
