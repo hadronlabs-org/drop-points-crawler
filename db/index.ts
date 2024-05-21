@@ -14,6 +14,7 @@ export const connect = (createTables = false): Database => {
       constants.SQLITE_OPEN_CREATE,
   );
   db.exec('PRAGMA busy_timeout = 5000;');
+  db.exec('PRAGMA journal_mode = WAL;');
   if (createTables) {
     logger.debug('Creating table tasks if not exists');
     db.exec(
@@ -30,6 +31,9 @@ export const connect = (createTables = false): Database => {
     );
     db.exec(
       'CREATE INDEX IF NOT EXISTS user_data_source_id_batch_id ON user_data (source_id, batch_id);',
+    );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
     );
   }
   return db;
