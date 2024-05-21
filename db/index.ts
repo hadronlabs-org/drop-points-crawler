@@ -33,10 +33,16 @@ export const connect = (createTables = false): Database => {
       'CREATE INDEX IF NOT EXISTS user_data_source_id_batch_id ON user_data (source_id, batch_id);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
+      'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC, referal_balance NUMERIC);',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, ts NUMERIC);',
+    );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS referals (address TEXT, referal TEXT);',
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS referals_address ON referals (address);',
     );
   }
   return db;
