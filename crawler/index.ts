@@ -44,8 +44,9 @@ program
     );
     logger.info('Heights: %o', heights);
     const heightJitter = parseInt(process.env.HEIGHT_JITTER || '0', 10);
+    const ts = Date.now() / 1000;
     const statement = db.prepare(
-      'INSERT INTO tasks (source_id, height, status, batch_id) VALUES ($source, $height, $status, $batch_id)',
+      'INSERT INTO tasks (source_id, height, status, batch_id, ts) VALUES ($source, $height, $status, $batch_id, $ts)',
     );
     const insert = db.transaction((tasks) => {
       for (const task of heights)
@@ -54,6 +55,7 @@ program
           $height: task.$height - Math.floor(heightJitter * Math.random()),
           $status: 'new',
           $batch_id: maxBatchId + 1,
+          $ts: ts,
         });
       return tasks.length;
     });
@@ -173,7 +175,6 @@ program
     const sourceObj = sources[source as keyof typeof sources];
     const price = await sourceObj.getPrice(height);
     await sourceObj.getUsersBalances(height, (balances: UserBalance[]) => {
-      //'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
       const query = db.prepare<
         unknown,
         [string, string, number, number, string]

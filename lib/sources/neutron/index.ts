@@ -7,7 +7,6 @@ import {
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 import { logger } from '../../logger';
-import { log } from 'console';
 
 const DENOM = process.env.NEUTRON_DENOM;
 if (!DENOM) {

@@ -17,7 +17,7 @@ export const connect = (createTables = false): Database => {
   if (createTables) {
     logger.debug('Creating table tasks if not exists');
     db.exec(
-      'CREATE TABLE IF NOT EXISTS tasks (source_id TEXT, height INTEGER, status TEXT, batch_id INTEGER, price NUMERIC);',
+      'CREATE TABLE IF NOT EXISTS tasks (source_id TEXT, height INTEGER, status TEXT, batch_id INTEGER, price NUMERIC, ts NUMERIC);',
     );
     db.exec(
       'CREATE INDEX IF NOT EXISTS tasks_source_id_height ON tasks (source_id, height);',
