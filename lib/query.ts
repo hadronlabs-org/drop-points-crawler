@@ -17,12 +17,15 @@ const queryContractOnHeight = async <T>(
     queryData: toAscii(JSON.stringify(query)),
   };
   const data = QuerySmartContractStateRequest.encode(request).finish();
+
   const response = await client.abciQuery({ path, data, height });
+
   if (response.code !== 0) {
     throw new Error(
       `Tendermint query error: ${response.log} Code: ${response.code}`,
     );
   }
+
   const out = JSON.parse(
     Buffer.from(
       QuerySmartContractStateResponse.decode(response.value).data,
