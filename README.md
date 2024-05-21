@@ -1,5 +1,11 @@
 # Drop points data crawler
-This crawler is used to get the drop points data from various sources and store it in a database
+
+## Overview
+* Drop protocol will be launched with no token for the first several months. During this period, the points program will be active. The points program will be used to distribute some part of initial supply of the DROP token. To get the points, users will need to perform certain actions, such as providing liquidity, staking, etc. 
+* A user will get points for defined timeframe and only if user passed the KYC procedure
+
+## Purpose
+This crawler is used to get the drop points data from various sources and store it in a database. The data is used to calculate the points for the users and then provided to be used in the smart contract to display the points on front-end and to distribute the DROP tokens.
 
 ## Design
 The crawler is designed to be modular and extensible. It consists of several components:
@@ -21,18 +27,17 @@ The crawler is designed to be modular and extensible. It consists of several com
 <sup>*</sup> - is integrated with the help of Subquery indexer
 
 ## Action plan
-This crawled is intended to run several times a day. The action plan is as follows:
+This crawler is intended to run several times a day. The action plan is as follows:
 1. Get heights from the chains store 
 2. Create tasks out of these heights
 3. For each task:
     0. Update the task status to `running`
     1. Get the data from the source
     2. Store the data in the database
-    3. Update the task status to `done`
+    3. Update the task status to `ready`
     4. In case of error, update the task status to `fail`
-
-### Finish task
-The `finish` task is used to aggregate the data and update the points on-chain using deployed CW20 contract
+4. Aggregate the data for the users who passed KYC and store it in the database
+5. Update the tasks status to `processed`
 
 ## Database schema
 As database we use SQLite3. The schema is as follows:
@@ -49,15 +54,17 @@ As database we use SQLite3. The schema is as follows:
 |---|---|---|
 |source_id          |string       |Foreign key to Sources.id |
 |height             |numberic     |height                    |
+|batch_id           |numberic     |Batch id                  |
 |address            |string       |Address                   |
 |value              |numeric      |                          |
 
 ### UserPoints
 |field|type|description|
 |---|---|---|
-|height       |numeric       |Height |
 |address      |string        |Address|
 |points       |numeric       |Points |
+|batch_id     |numeric       |Height |
+|ts           |numeric       |Timestamp |
 
 ### Tasks
 |field|type|description|
@@ -65,7 +72,8 @@ As database we use SQLite3. The schema is as follows:
 |source_id    |string        |source id                        |
 |height       |numeric       |Height                           |
 |status       |string        |new/fail/running/ready/processed  |
-|batch_id   |numberic        |id of batch  |
+|batch_id   |numeric        |id of batch  |
+|ts         |numeric        |Timestamp  |
 
 ## How to run
 * install [bun](https://bun.sh/) (you can use rtx, asdf, etc or install it manually)
@@ -73,3 +81,4 @@ As database we use SQLite3. The schema is as follows:
 * define `.env` (or just copy `env.sample` to `.env` and adjust it)
 * run `bun run crawl --help` to get the list of available commands
 * run `bun run crawl <command> --help` to get the list of available options for the command
+* to get into the DB you can use any SQLite3 client and connect to the `./data.db` file

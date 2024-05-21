@@ -35,6 +35,9 @@ export const connect = (createTables = false): Database => {
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_data (source_id TEXT, address TEXT, height INTEGER, batch_id INTEGER, balance NUMERIC);',
     );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, ts NUMERIC);',
+    );
   }
   return db;
 };
