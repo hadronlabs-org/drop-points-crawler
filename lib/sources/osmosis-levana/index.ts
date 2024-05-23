@@ -5,8 +5,14 @@ import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 
 let client: Tendermint34Client | undefined;
 
-const DEFAULT_LIMIT = 300;
-const CONCURRENCY_LIMIT = 3;
+const PAGINATION_LIMIT = parseInt(
+  process.env.OSMOSIS_LEVANA_PAGINATION_LIMIT || '300',
+  10,
+);
+const CONCURRENCY_LIMIT = parseInt(
+  process.env.OSMOSIS_LEVANA_CONCURRENCY_LIMIT || '3',
+  10,
+);
 
 const OSMOSIS_LEVANA_RPC = process.env.OSMOSIS_LEVANA_RPC;
 if (!OSMOSIS_LEVANA_RPC) {
@@ -71,10 +77,9 @@ const getUsersBalances = async (
 ): Promise<void> => {
   const client = await getClient();
 
-  const limit = DEFAULT_LIMIT;
+  const limit = PAGINATION_LIMIT;
   let startAfter = undefined;
   let accounts: string[] = [];
-  const usersBalances = [];
 
   while (true) {
     startAfter =
@@ -92,8 +97,8 @@ const getUsersBalances = async (
       ),
     );
 
-    usersBalances.push(
-      ...settledResults.reduce(
+    cb(
+      settledResults.reduce(
         (
           filteredResult: { address: string; balance: string }[],
           settledResult,
@@ -107,8 +112,6 @@ const getUsersBalances = async (
       ),
     );
   }
-
-  cb(usersBalances);
 };
 
 export { getLastBlockHeight, getPrice, getUsersBalances };
