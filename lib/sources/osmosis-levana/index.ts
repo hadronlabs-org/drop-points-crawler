@@ -1,11 +1,18 @@
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+import pLimit from 'p-limit';
 import { queryContractOnHeight } from '../../query';
-import { ConcurrentJob } from '../../concurent-promise-job';
+import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 
 let client: Tendermint34Client | undefined;
 
-const DEFAULT_LIMIT = 300;
-const CONCURENCY = 3;
+const PAGINATION_LIMIT = parseInt(
+  process.env.OSMOSIS_LEVANA_PAGINATION_LIMIT || '300',
+  10,
+);
+const CONCURRENCY_LIMIT = parseInt(
+  process.env.OSMOSIS_LEVANA_CONCURRENCY_LIMIT || '3',
+  10,
+);
 
 const OSMOSIS_LEVANA_RPC = process.env.OSMOSIS_LEVANA_RPC;
 if (!OSMOSIS_LEVANA_RPC) {
@@ -20,20 +27,20 @@ const getAccounts = async (
   client: Tendermint34Client,
   height: number,
   limit: number,
-  start_after: string | undefined,
+  startAfter: string | undefined,
 ): Promise<string[]> => {
   const data = await queryContractOnHeight<{ accounts: string[] }>(
     client,
     LP_TOKEN_ADDRESS,
     height,
     {
-      all_accounts: { limit, start_after },
+      all_accounts: { limit, start_after: startAfter },
     },
   );
   return data.accounts;
 };
 
-const getAccountData = async (
+const getAccountBalance = async (
   client: Tendermint34Client,
   height: number,
   address: string,
@@ -56,36 +63,55 @@ const getClient = async () => {
   return client;
 };
 
-export const getLastBlockHeight = async (): Promise<number> => {
+const getLastBlockHeight = async (): Promise<number> => {
   const client = await getClient();
   const status = await client.status();
   return status.syncInfo.latestBlockHeight;
 };
 
-// const main = async () => {
-//   const client = await Tendermint34Client.connect(OSMOSIS_LEVANA_RPC);
-//   const lastBlock = await client.block();
-//   const height = lastBlock.block.header.height;
-//   const limit = DEFAULT_LIMIT;
-//   let start_after: string | undefined = undefined;
-//   let total = 0;
-//   const cj = ConcurrentJob<string>(CONCURENCY);
-//   cj.onResult((key, result) => {
-//     console.log(`Account ${key} processed with result ${result}`);
-//   });
-//   //   while (true) {
-//   const accounts = await getAccounts(client, height, limit, start_after);
-//   start_after = accounts[accounts.length - 1];
-//   total += accounts.length;
-//   accounts.forEach((account) => {
-//     cj.addTask((account) => getAccountData(client, height, account), account);
-//   });
-//   //     if (accounts.length !== limit) {
-//   //       break;
-//   //     }
-//   //   }
-//   await cj.waitFinish();
-//   console.log('Total accounts:', total);
-// };
+const getPrice = (): number => 1;
 
-// main();
+const getUsersBalances = async (
+  height: number,
+  cb: CbOnUserBalances,
+): Promise<void> => {
+  const client = await getClient();
+
+  const limit = PAGINATION_LIMIT;
+  let startAfter = undefined;
+  let accounts: string[] = [];
+
+  while (true) {
+    startAfter =
+      accounts.length > 0 ? accounts[accounts.length - 1] : undefined;
+    accounts = await getAccounts(client, height, limit, startAfter);
+    if (accounts.length === 0) break;
+
+    const withConcurrencyLimit = pLimit(CONCURRENCY_LIMIT);
+    const settledResults = await Promise.allSettled(
+      accounts.map((account) =>
+        withConcurrencyLimit(async () => ({
+          address: account,
+          balance: await getAccountBalance(client, height, account),
+        })),
+      ),
+    );
+
+    cb(
+      settledResults.reduce(
+        (
+          filteredResult: { address: string; balance: string }[],
+          settledResult,
+        ) => {
+          if (settledResult.status === 'fulfilled') {
+            filteredResult.push(settledResult.value);
+          }
+          return filteredResult;
+        },
+        [],
+      ),
+    );
+  }
+};
+
+export { getLastBlockHeight, getPrice, getUsersBalances };
