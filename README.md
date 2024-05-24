@@ -36,8 +36,8 @@ This crawler is intended to run several times a day. The action plan is as follo
     2. Store the data in the database
     3. Update the task status to `ready`
     4. In case of error, update the task status to `fail`
-4. Aggregate the data for the users who passed KYC and store it in the database
-5. Update `referal_balance` for the users who referred the users who passed KYC
+4. Aggregate the data for the users and store it in the database
+5. Update `referal_balance` for the users who passed KYC who referred the users 
 6. Update the tasks status to `processed`
 
 ## Database schema
@@ -67,14 +67,20 @@ As database we use SQLite3. The schema is as follows:
 |batch_id     |numeric       |Height |
 |ts           |numeric       |Timestamp |
 
+### Banned wallets
+|field|type|description|
+|---|---|---|
+|address      |string        |Address|
+|ts           |numeric       |Timestamp |
+
 ### Tasks
 |field|type|description|
 |---|---|---|
 |source_id    |string        |source id                        |
 |height       |numeric       |Height                           |
 |status       |string        |new/fail/running/ready/processed  |
-|batch_id   |numeric        |id of batch  |
-|ts         |numeric        |Timestamp  |
+|batch_id     |numeric        |id of batch  |
+|ts           |numeric        |Timestamp  |
 
 ## How to run
 * install [bun](https://bun.sh/) (you can use rtx, asdf, etc or install it manually)

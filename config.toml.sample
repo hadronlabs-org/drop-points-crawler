@@ -1,0 +1,41 @@
+enabled_protocols = ["neutron", "osmosis-levana", "osmosis-mars", "kujira"]
+db_path = "data.db"
+log_level = "debug"
+assets = ["dATOM", 'dTIA']
+
+sources = ["levana", "mars", "kujira", "neutron"]
+
+[protocols.neutron]
+source = "neutron"
+rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+jitter = 10000
+limit = 10000
+[protocols.neutron.assets.dATOM]
+multiplier = 1
+denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
+
+
+[protocols.osmosis-levana]
+rpc = "https://osmosis-rpc.polkachu.com:443/"
+source = "levana"
+jitter = 10000
+concurrent = 3
+limit = 1000
+[protocols.osmosis-levana.assets.dATOM]
+multiplier = 2
+lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
+
+
+[protocols.osmosis-mars]
+rpc = "https://osmosis-rpc.polkachu.com:443/"
+source = "mars"
+[protocols.osmosis-mars.assets.dATOM]
+multiplier = 1
+nft_contract = "osmo1450hrg6dv2l58c0rvdwx8ec2a0r6dd50hn4frk370tpvqjhy8khqw7sw09"
+credit_contract = "osmo1f2m24wktq0sw3c0lexlg7fv4kngwyttvzws3a3r3al9ld2s2pvds87jqvf"
+
+# [protocols.neutron-levana]
+# rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+# source = "mars"
+# [protocols.neutron-levana.assets.dATOM]
+# neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
