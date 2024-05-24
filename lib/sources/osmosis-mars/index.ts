@@ -20,8 +20,10 @@ interface PositionResponse {
   }[];
 }
 
-const MARS_DENOM =
-  'ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2';
+const DENOM = process.env.OSMOSIS_MARS_DENOM;
+if (!DENOM) {
+  throw new Error('OSMOSIS_MARS_DENOM environment variable not set');
+}
 const NFT_CONTRACT_ADDRESS = process.env.OSMOSIS_MARS_NFT_CONTRACT;
 if (!NFT_CONTRACT_ADDRESS) {
   throw new Error('OSMOSIS_MARS_NFT_CONTRACT environment variable not set');
@@ -127,7 +129,7 @@ const getLastBlockHeight = async (): Promise<number> => {
 
 const getBalanceOrNull = (positions: PositionResponse) => {
   if (positions.debts.length > 0 && positions.lends.length > 0) {
-    const foundAsset = positions.lends.find((lend) => lend.denom === MARS_DENOM);
+    const foundAsset = positions.lends.find((lend) => lend.denom === DENOM);
     if (foundAsset) return foundAsset.amount;
   }
 
