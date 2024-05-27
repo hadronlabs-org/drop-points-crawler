@@ -1,9 +1,13 @@
-export type Source =
-  | 'kujira'
-  | 'secret'
-  | 'osmosis'
-  | 'osmosis-levana'
-  | 'osmosis-mars'
-  | 'neutron'
-  | 'neutron-mars'
-  | 'neutron-levana';
+/* eslint-disable no-unused-vars */
+import { Logger } from 'pino';
+import { CbOnUserBalances } from './cbOnUserBalances';
+
+export interface SourceInterface {
+  logger: Logger<never>;
+  getLastBlockHeight(): Promise<number>;
+  getUsersBalances(
+    height: number,
+    multipliers: Record<string, number>,
+    cb: CbOnUserBalances,
+  ): Promise<void>;
+}

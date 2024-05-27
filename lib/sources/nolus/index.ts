@@ -7,7 +7,7 @@ import {
 
 const CONTRACT =
   'nolus1dca9sf0knq3qfg55mv2sn03rdw6gukkc4n764x5pvdgrgnpf9mzsfkcjp6';
-
+//nolus1jew4l5nq7m3xhkqzy8j7cc99083m5j8d9w004ayyv8xl3yv4h0dql2dd4e
 const getContractStateKeys = async (
   client: Tendermint34Client,
   height: number,

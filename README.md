@@ -36,45 +36,87 @@ This crawler is intended to run several times a day. The action plan is as follo
     2. Store the data in the database
     3. Update the task status to `ready`
     4. In case of error, update the task status to `fail`
-4. Aggregate the data for the users who passed KYC and store it in the database
-5. Update `referal_balance` for the users who referred the users who passed KYC
+4. Aggregate the data for the users and store it in the database
+5. Update `referral_balance` for the users who passed KYC who referred the users 
 6. Update the tasks status to `processed`
 
 ## Database schema
 As database we use SQLite3. The schema is as follows:
 
-### Sources
-|field|type|description|
-|---|---|---|
-|id             |string     |Primary key         |
-|name           |string     |Name of the source  |
-|multiplier     |numberic   |Points multiplier   |
+### `batches`
 
-### UserData
-|field|type|description|
-|---|---|---|
-|source_id          |string       |Foreign key to Sources.id |
-|height             |numberic     |height                    |
-|batch_id           |numberic     |Batch id                  |
-|address            |string       |Address                   |
-|value              |numeric      |                          |
+| Column   | Type    | Constraints                           |
+|----------|---------|---------------------------------------|
+| batch_id | INTEGER | PRIMARY KEY AUTOINCREMENT             |
+| ts       | INTEGER |                                       |
 
-### UserPoints
-|field|type|description|
-|---|---|---|
-|address      |string        |Address|
-|points       |numeric       |Points |
-|batch_id     |numeric       |Height |
-|ts           |numeric       |Timestamp |
+### `prices`
 
-### Tasks
-|field|type|description|
-|---|---|---|
-|source_id    |string        |source id                        |
-|height       |numeric       |Height                           |
-|status       |string        |new/fail/running/ready/processed  |
-|batch_id   |numeric        |id of batch  |
-|ts         |numeric        |Timestamp  |
+| Column   | Type    | Constraints                           |
+|----------|---------|---------------------------------------|
+| asset_id | TEXT    |                                       |
+| batch_id | INTEGER | PRIMARY KEY (batch_id DESC, asset_id) |
+| price    | NUMERIC |                                       |
+| ts       | INTEGER |                                       |
+
+### `tasks`
+
+| Column      | Type    | Constraints                             |
+|-------------|---------|-----------------------------------------|
+| protocol_id | TEXT    |                                         |
+| batch_id    | INTEGER | PRIMARY KEY (batch_id DESC, protocol_id)|
+| height      | INTEGER |                                         |
+| status      | TEXT    |                                         |
+| jitter      | NUMERIC |                                         |
+| ts          | INTEGER |                                         |
+
+### `user_data`
+
+| Column      | Type    | Constraints                               |
+|-------------|---------|-------------------------------------------|
+| batch_id    | INTEGER | PRIMARY KEY (batch_id DESC, address, protocol_id) |
+| address     | TEXT    |                                           |
+| protocol_id | TEXT    |                                           |
+| height      | INTEGER |                                           |
+| asset       | TEXT    |                                           |
+| balance     | NUMERIC |                                           |
+
+### `user_kyc`
+
+| Column  | Type    | Constraints       |
+|---------|---------|-------------------|
+| address | TEXT    | PRIMARY KEY       |
+| ts      | INTEGER |                   |
+
+### `referrals`
+
+| Column  | Type    | Constraints       |
+|---------|---------|-------------------|
+| address | TEXT    | PRIMARY KEY       |
+| referal | TEXT    |                   |
+
+### `user_points`
+
+| Column           | Type    | Constraints                               |
+|------------------|---------|-------------------------------------------|
+| batch_id         | INTEGER | PRIMARY KEY (batch_id DESC, address, asset_id) |
+| address          | TEXT    |                                           |
+| asset_id         | TEXT    |                                           |
+| points           | NUMERIC |                                           |
+| referal_points_l1| NUMERIC |                                           |
+| referal_points_l2| NUMERIC |                                           |
+
+### `schedule`
+
+| Column      | Type    | Constraints                           |
+|-------------|---------|---------------------------------------|
+| schedule_id | INTEGER | PRIMARY KEY AUTOINCREMENT             |
+| protocol_id | INTEGER |                                       |
+| asset_id    | TEXT    |                                       |
+| multiplier  | REAL    |                                       |
+| start       | INTEGER |                                       |
+| end         | INTEGER |                                       |
+| enabled     | BOOLEAN |                                       |
 
 ## How to run
 * install [bun](https://bun.sh/) (you can use rtx, asdf, etc or install it manually)
