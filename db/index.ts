@@ -64,13 +64,6 @@ export const connect = (
         }
       }
     }
-
-    // SCHEDULE // by asset and protocol
-    // id (autoincrement) protocol_id asset_id multiplier start end
-
-    // osmosis-levana dATOM 2 0 0
-    // osmosis-levana dATOM 2.3 1jun 1sep
-    // select multiplier, asset where (start < now() AND end > now()) OR (start = 0 AND end = 0) LIMIT 1;
   }
   return db;
 };
