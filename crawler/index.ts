@@ -39,11 +39,12 @@ const getAssetMulsByProtocolAndBatchId = (
         (
           SELECT 
             * 
-          FROM schedule 
+          FROM schedule s
+          LEFT JOIN 
+            batches bt ON (bt.ts > s.start AND bt.ts < s.end)
           WHERE 
             protocol_id = ? AND
-            (start < (SELECT ts FROM batch_ts) AND (SELECT ts FROM batch_ts) < end) OR 
-            (start = 0 AND end = 0)
+            ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
           ORDER BY protocol_id, schedule_id DESC
         ) a 
       GROUP BY a.protocol_id
@@ -78,9 +79,11 @@ program
           (
               SELECT 
                 * 
-              FROM schedule 
+              FROM schedule s
+              LEFT JOIN 
+                batches bt ON  bt.ts > s.start AND bt.ts < s.end
               WHERE 
-                (start<? AND ? < end) OR (start = 0 AND end = 0)
+                ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
               ORDER BY protocol_id, schedule_id DESC
         ) a GROUP BY a.protocol_id
       ) b
