@@ -319,6 +319,14 @@ scheduleCli
     }
     const dateStart = (new Date(start).getTime() / 1000) | 0;
     const dateEnd = (new Date(end).getTime() / 1000) | 0;
+    if (isNaN(dateStart)) {
+      logger.error('Invalid start date %s', start);
+      return;
+    }
+    if (isNaN(dateEnd) || dateEnd < Date.now() / 1000) {
+      logger.error('Invalid end date %s', end);
+      return;
+    }
     if (dateStart >= dateEnd) {
       logger.error('End date must be greater than start date');
       return;
