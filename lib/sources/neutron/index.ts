@@ -13,7 +13,7 @@ export default class NeutronSource implements SourceInterface {
   rpc: string;
   limit: number;
   logger: Logger<never>;
-  assets: Record<string, string> = {};
+  assets: Record<string, { denom: string }> = {};
   client: Tendermint34Client | undefined;
 
   getClient = async () => {
@@ -35,16 +35,22 @@ export default class NeutronSource implements SourceInterface {
   }
 
   getDenomBalances = async (
-    denom: string,
+    asset: { denom: string },
+    multiplier: number,
     height: number,
     nextKey: undefined | Uint8Array = undefined,
   ): Promise<{
     results: Record<string, string>;
     nextKey: undefined | Uint8Array;
   }> => {
+    this.logger.debug(
+      'Fetching balances for %o with multiplier %s',
+      asset.denom,
+      multiplier,
+    );
     const path = '/cosmos.bank.v1beta1.Query/DenomOwners';
     const request = {
-      denom,
+      denom: asset.denom,
       pagination: PageRequest.fromPartial({
         limit: BigInt(this.limit),
         key: nextKey,
@@ -61,7 +67,14 @@ export default class NeutronSource implements SourceInterface {
     }
     const balances = QueryDenomOwnersResponse.decode(response.value);
     const out = balances.denomOwners.reduce(
-      (acc, one) => ({ ...acc, [one.address]: one.balance.amount }),
+      (acc, one) => ({
+        ...acc,
+        [one.address]: (
+          (BigInt(one.balance.amount) *
+            BigInt(Math.round(multiplier * 10000))) /
+          BigInt(10000)
+        ).toString(),
+      }),
       {},
     );
     this.logger.debug('Got %d balances', Object.keys(out).length);
@@ -76,13 +89,15 @@ export default class NeutronSource implements SourceInterface {
 
   getUsersBalances = async (
     height: number,
+    multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
     let nextKey: undefined | Uint8Array = undefined;
-    for (const [assetId, denom] of Object.entries(this.assets)) {
+    for (const [assetId, asset] of Object.entries(this.assets)) {
       do {
         const { results, nextKey: newNextKey } = await this.getDenomBalances(
-          denom,
+          asset,
+          multipliers[assetId] || 1,
           height,
           nextKey,
         );
