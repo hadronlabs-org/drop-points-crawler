@@ -1,7 +1,11 @@
 import { Database, constants } from 'bun:sqlite';
-import { logger } from '../lib/logger';
+import { Logger } from 'pino';
 
-export const connect = (createTables = false, config: any): Database => {
+export const connect = (
+  createTables = false,
+  config: any,
+  logger: Logger<never>,
+): Database => {
   const dbPath = config.db_path;
   if (!dbPath) {
     throw new Error('DB_PATH environment variable not set');

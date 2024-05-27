@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Command } from 'commander';
 import { connect } from '../db';
-import { logger } from '../lib/logger';
+import { getLogger } from '../lib/logger';
 import sources from '../lib/sources';
 import { UserBalance } from '../types/userBalance';
 import fs from 'fs';
@@ -10,66 +10,89 @@ import toml from 'toml';
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
 
-if (!process.env.LOG_LEVEL) {
-  throw new Error('LOG_LEVEL environment variable not set');
-}
-
 const config = toml.parse(
   fs.readFileSync(program.getOptionValue('config'), 'utf-8'),
 );
-
-const db = connect(true, config);
+if (!config.log_level) {
+  throw new Error('LOG_LEVEL environment variable not set');
+}
+const logger = getLogger(config);
+const db = connect(true, config, logger);
 
 program
   .command('prepare')
   .description('Prepare tasks for processing sources')
-  .action(async () => {
-    process.exit();
-    const enabledSources = process.env.ENABLED_SOURCES?.split(',') || [];
-    if (!enabledSources.length) {
-      throw new Error('No active sources found, please define ENABLED_SOURCES');
+  .option('-t --timestamp <timestamp>', 'Timestamp to use')
+  .action(async (options) => {
+    const ts = parseInt(
+      options.timestamp || (Date.now() / 1000).toString(),
+      10,
+    );
+    const query = db.query<
+      { protocol_id: number; asset_id: number; multiplier: number },
+      [number, number]
+    >(
+      `
+      SELECT 
+        protocol_id, asset_id, multiplier
+      FROM
+      (
+        SELECT * FROM 
+          (
+              SELECT 
+                * 
+              FROM schedule 
+              WHERE 
+                (start<? AND ? < end) OR (start = 0 AND end = 0)
+              ORDER BY protocol_id, schedule_id DESC
+        ) a GROUP BY a.protocol_id
+      ) b
+      WHERE b.enabled = 1`,
+    );
+    const protocolsInDb = query.all(ts, ts);
+    if (!protocolsInDb.length) {
+      logger.info('No protocols found in the schedule');
+      return;
     }
-    logger.info('Enabled sources: %s', enabledSources);
-    const getHeights = enabledSources.filter(Boolean).map((key) => {
-      const source = sources[key as keyof typeof sources];
-      if (!source) {
-        throw new Error(`Source ${key} not found`);
+    const queryInsertBatch = db.prepare<{ batch_id: number }, number>(
+      'INSERT INTO batches (ts) VALUES (?) RETURNING batch_id',
+    );
+    const batchId = queryInsertBatch.get(ts)?.batch_id;
+    if (!batchId) {
+      throw new Error('Failed to insert batch');
+    }
+    logger.info('Inserted batch %d', batchId);
+    // get prices
+    // insert prices
+    const timeShift = Math.random(); //same for all protocols bc of IBC and stuff
+    const pricesTx = db.prepare(
+      'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
+    );
+    const tasksTx = db.prepare(
+      'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    for (const protocol of protocolsInDb) {
+      const protocolObj = config.protocols[protocol.protocol_id];
+      for (const assetId of Object.keys(protocolObj.assets)) {
+        const price = 10; // TODO: get price!
+        pricesTx.run(assetId, batchId, price, ts);
       }
-      return source.getLastBlockHeight();
-    });
-
-    const maxBatchId =
-      db
-        .query<
-          { batch_id: number },
-          null
-        >('SELECT max(batch_id) as batch_id FROM tasks')
-        .get(null)?.batch_id || 0;
-
-    const results = await Promise.all(getHeights);
-    const heights = enabledSources.reduce(
-      (acc, key, idx) => [...acc, { $source: key, $height: results[idx] }],
-      [] as { $source: string; $height: number }[],
-    );
-    logger.info('Heights: %o', heights);
-    const heightJitter = parseInt(process.env.HEIGHT_JITTER || '0', 10);
-    const ts = Date.now() / 1000;
-    const statement = db.prepare(
-      'INSERT INTO tasks (source_id, height, status, batch_id, ts) VALUES ($source, $height, $status, $batch_id, $ts)',
-    );
-    const insert = db.transaction((tasks) => {
-      for (const task of heights)
-        statement.run({
-          $source: task.$source,
-          $height: task.$height - Math.floor(heightJitter * Math.random()),
-          $status: 'new',
-          $batch_id: maxBatchId + 1,
-          $ts: ts,
-        });
-      return tasks.length;
-    });
-    const res = insert(heights);
-    logger.info('Inserted %d tasks', res);
+      const jitter = (protocolObj.jitter * timeShift) | 0;
+      const source = new sources[protocolObj.source as keyof typeof sources](
+        protocolObj.rpc,
+        logger,
+        protocolObj,
+      );
+      const height = await source.getLastBlockHeight();
+      logger.debug(
+        'Got height %d for protocol %s',
+        height,
+        protocol.protocol_id,
+      );
+      tasksTx.run(protocol.protocol_id, batchId, height, 'new', jitter, ts);
+    }
+    pricesTx.finalize();
+    tasksTx.finalize();
   });
 
 program
