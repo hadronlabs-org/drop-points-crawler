@@ -118,15 +118,3 @@ export default class NeutronSource implements SourceInterface {
     }
   };
 }
-
-// const DENOM = process.env.NEUTRON_DENOM;
-// if (!DENOM) {
-//   throw new Error('NEUTRON_DENOM environment variable not set');
-// }
-// const LIMIT = parseInt(process.env.NEUTRON_LIMIT || '10000', 10);
-// const NEUTRON_RPC = process.env.NEUTRON_RPC;
-// if (!NEUTRON_RPC) {
-//   throw new Error('NEUTRON_RPC environment variable not set');
-// }
-
-// export const getPrice = (): number => 1;
