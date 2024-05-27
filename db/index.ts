@@ -37,7 +37,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS referals (address TEXT PRIMARY KEY, referal TEXT);',
+      'CREATE TABLE IF NOT EXISTS referrals (address TEXT PRIMARY KEY, referal TEXT);',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, referal_points_l1 NUMERIC, referal_points_l2 NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
