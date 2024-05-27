@@ -118,6 +118,9 @@ program
         pricesTx.run(assetId, batchId, price, ts);
       }
       const jitter = (protocolObj.jitter * timeShift) | 0;
+      if (!jitter) {
+        logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
+      }
       const source = new sources[protocolObj.source as keyof typeof sources](
         protocolObj.rpc,
         logger,
