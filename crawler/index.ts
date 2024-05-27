@@ -99,7 +99,7 @@ program
       throw new Error('Failed to insert batch');
     }
     logger.info('Inserted batch %d', batchId);
-    // get prices
+    // TODO: get prices
     // insert prices
     const timeShift = Math.random(); //same for all protocols bc of IBC and stuff
     const pricesTx = db.prepare(
@@ -126,7 +126,14 @@ program
         height,
         protocol.protocol_id,
       );
-      tasksTx.run(protocol.protocol_id, batchId, height, 'new', jitter, ts);
+      tasksTx.run(
+        protocol.protocol_id,
+        batchId,
+        height - jitter,
+        'new',
+        jitter,
+        ts,
+      );
     }
     pricesTx.finalize();
     tasksTx.finalize();
@@ -150,7 +157,7 @@ program
           .query<
             { height: number; ts: number },
             [number, string]
-          >('SELECT height, ts FROM tasks WHERE batch_id = ? AND protocol_id = ? AND status = "new" ORDER BY height ASC LIMIT 1')
+          >('SELECT height, ts FROM tasks WHERE batch_id = ? AND protocol_id = ? AND status = "new" ORDER BY batch_id ASC LIMIT 1')
           .get(batchId, protocolId);
         if (!row) {
           logger.info('No tasks found for batch_id %s', options.batch_id);
