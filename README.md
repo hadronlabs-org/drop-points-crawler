@@ -88,7 +88,7 @@ As database we use SQLite3. The schema is as follows:
 | address | TEXT    | PRIMARY KEY       |
 | ts      | INTEGER |                   |
 
-### `referals`
+### `referrals`
 
 | Column  | Type    | Constraints       |
 |---------|---------|-------------------|
