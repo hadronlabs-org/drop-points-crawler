@@ -37,7 +37,7 @@ This crawler is intended to run several times a day. The action plan is as follo
     3. Update the task status to `ready`
     4. In case of error, update the task status to `fail`
 4. Aggregate the data for the users and store it in the database
-5. Update `referal_balance` for the users who passed KYC who referred the users 
+5. Update `referral_balance` for the users who passed KYC who referred the users 
 6. Update the tasks status to `processed`
 
 ## Database schema
