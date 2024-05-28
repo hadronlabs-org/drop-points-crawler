@@ -66,6 +66,7 @@ program
       options.timestamp || (Date.now() / 1000).toString(),
       10,
     );
+
     const query = db.query<
       { protocol_id: number; asset_id: number; multiplier: number },
       [number, number]
@@ -89,6 +90,7 @@ program
       ) b
       WHERE b.enabled = 1`,
     );
+
     const protocolsInDb = query.all(ts, ts);
     if (!protocolsInDb.length) {
       logger.info('No protocols found in the schedule');
@@ -102,36 +104,49 @@ program
       throw new Error('Failed to insert batch');
     }
     logger.info('Inserted batch %d', batchId);
+
     // TODO: get prices
     // insert prices
-    const timeShift = Math.random(); //same for all protocols bc of IBC and stuff
     const pricesTx = db.prepare(
       'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
     );
+    const processedAssets = new Set();
+
     const tasksTx = db.prepare(
       'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
     );
+
+    const timeShift = Math.random(); //same for all protocols bc of IBC and stuff
     for (const protocol of protocolsInDb) {
       const protocolObj = config.protocols[protocol.protocol_id];
-      for (const assetId of Object.keys(protocolObj.assets)) {
+
+      Object.keys(protocolObj.assets).forEach((assetId) => {
+        if (processedAssets.has(assetId)) return;
+
         const price = 10; // TODO: get price!
+
         pricesTx.run(assetId, batchId, price, ts);
-      }
+        processedAssets.add(assetId);
+      });
+
       const jitter = (protocolObj.jitter * timeShift) | 0;
       if (!jitter) {
         logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
       }
+
       const source = new sources[protocolObj.source as keyof typeof sources](
         protocolObj.rpc,
         logger,
         protocolObj,
       );
       const height = await source.getLastBlockHeight();
+
       logger.debug(
         'Got height %d for protocol %s',
         height,
         protocol.protocol_id,
       );
+
       tasksTx.run(
         protocol.protocol_id,
         batchId,
@@ -141,6 +156,7 @@ program
         ts,
       );
     }
+
     pricesTx.finalize();
     tasksTx.finalize();
   });

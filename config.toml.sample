@@ -2,7 +2,7 @@ db_path = "data.db"
 log_level = "debug"
 assets = ["dATOM", 'dTIA']
 
-sources = ["levana", "mars", "kujira", "neutron"]
+sources = ["osmosis-levana", "osmosis-mars", "kujira", "neutron"]
 
 [protocols.neutron]
 source = "neutron"
@@ -14,25 +14,28 @@ multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 
 
-# [protocols.osmosis-levana]
-# rpc = "https://osmosis-rpc.polkachu.com:443/"
-# source = "levana"
-# jitter = 10000
-# concurrent = 3
-# limit = 1000
-# [protocols.osmosis-levana.assets.dATOM]
-# multiplier = 2
-# lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
+[protocols.osmosis-levana]
+rpc = "https://osmosis-rpc.polkachu.com:443/"
+source = "osmosis-levana"
+jitter = 10000
+concurrency_limit = 3
+pagination_limit = 300
+[protocols.osmosis-levana.assets.dATOM]
+multiplier = 2
+lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
 
 
-# [protocols.osmosis-mars]
-# rpc = "https://osmosis-rpc.polkachu.com:443/"
-# source = "mars"
-# jitter = 10000
-# [protocols.osmosis-mars.assets.dATOM]
-# multiplier = 1
-# nft_contract = "osmo1450hrg6dv2l58c0rvdwx8ec2a0r6dd50hn4frk370tpvqjhy8khqw7sw09"
-# credit_contract = "osmo1f2m24wktq0sw3c0lexlg7fv4kngwyttvzws3a3r3al9ld2s2pvds87jqvf"
+[protocols.osmosis-mars]
+rpc = "https://osmosis-rpc.polkachu.com:443/"
+source = "osmosis-mars"
+jitter = 10000
+concurrency_limit = 3
+pagination_limit = 100
+[protocols.osmosis-mars.assets.dATOM]
+multiplier = 1
+nft_contract = "osmo1450hrg6dv2l58c0rvdwx8ec2a0r6dd50hn4frk370tpvqjhy8khqw7sw09"
+credit_contract = "osmo1f2m24wktq0sw3c0lexlg7fv4kngwyttvzws3a3r3al9ld2s2pvds87jqvf"
+denom = "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2"
 
 # [protocols.neutron-levana]
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
@@ -40,11 +43,11 @@ denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 # [protocols.neutron-levana.assets.dATOM]
 # neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
 
-# [protocols.kujira]
-# source = "kujira"
-# rpc = "https://kujira-rpc.publicnode.com:443/"
-# jitter = 10000
-# limit = 10000
-# [protocols.kujira.assets.dATOM]
-# multiplier = 1
-# denom = "ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9"
+[protocols.kujira]
+source = "kujira"
+rpc = "https://kujira-rpc.publicnode.com:443/"
+jitter = 10000
+limit = 10000
+[protocols.kujira.assets.dATOM]
+multiplier = 1
+denom = "ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9"
