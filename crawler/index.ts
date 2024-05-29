@@ -315,9 +315,8 @@ program
       );
 
       if (options.publish) {
-        // publish points to the CW20 contract
         const query = db.query<{ batch_id: number; ts: number }, string>(
-          `SELECT batch_id, ts FROM batches WHERE status = ? ORDER BY batch_id ASC LIMIT 1`,
+          `SELECT batch_id, ts FROM batches WHERE status = ? ORDER BY batch_id ASC`,
         );
         const all = query.all('new');
         const batchIds = all.map((row) => row.batch_id);
@@ -382,6 +381,8 @@ program
       }
     });
     tx();
+    logger.info('Task has been finished');
+    //publish points to CW20
   });
 
 const scheduleCli = program
