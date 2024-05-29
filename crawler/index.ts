@@ -94,10 +94,10 @@ program
       logger.info('No protocols found in the schedule');
       return;
     }
-    const queryInsertBatch = db.prepare<{ batch_id: number }, number>(
-      'INSERT INTO batches (ts) VALUES (?) RETURNING batch_id',
+    const queryInsertBatch = db.prepare<{ batch_id: number }, [number, string]>(
+      'INSERT INTO batches (ts, status) VALUES (?, ?) RETURNING batch_id',
     );
-    const batchId = queryInsertBatch.get(ts)?.batch_id;
+    const batchId = queryInsertBatch.get(ts, 'new')?.batch_id;
     if (!batchId) {
       throw new Error('Failed to insert batch');
     }
@@ -235,14 +235,10 @@ program
 
 program
   .command('finish')
+  .description('Calculate points for users and finish the task')
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
+  .option('-p --publish', 'Publish the points to the blockchain')
   .action((options) => {
-    const enabledSources = process.env.ENABLED_SOURCES?.split(',') || [];
-    if (!enabledSources.length) {
-      throw new Error(
-        'No enabled sources found, please define ENABLED_SOURCES',
-      );
-    }
     const batchId = (() => {
       if (options.batch_id === undefined) {
         const row = db.query<{ batch_id: number }, null>(
@@ -258,10 +254,10 @@ program
         row.finalize();
         return batchId;
       } else {
-        const query = db.query<{ batch_id: number }, [number, string]>(
-          'SELECT batch_id FROM tasks WHERE status = "ready" AND height = ? AND source_id IN (?) ORDER BY batch_id ASC LIMIT 1',
+        const query = db.query<{ batch_id: number }, [number]>(
+          'SELECT batch_id FROM tasks WHERE status = "ready" AND height = ? ORDER BY batch_id ASC LIMIT 1',
         );
-        const row = query.get(options.batch_id, enabledSources.join(', '));
+        const row = query.get(options.batch_id);
         if (!row) {
           logger.info('No tasks found for batch_id %s', options.batch_id);
         }
@@ -270,23 +266,118 @@ program
       }
     })();
     if (!batchId) {
+      logger.info('No tasks for finishing found');
       return;
     }
     logger.info('Finishing task for batch_id %s', batchId);
     const query = db.query<{ cnt: number }, number>(
-      'SELECT count(*) as cnt FROM tasks WHERE batch_id = ? AND status = "ready"',
+      'SELECT count(*) as cnt FROM tasks WHERE batch_id = ? AND status <> "ready"',
     );
     const cnt = query.get(batchId)?.cnt;
-    if (cnt !== enabledSources.length) {
-      logger.info('Not all tasks are ready');
+    if (cnt !== 0) {
+      logger.error('Not all tasks are ready');
+      return;
     }
-    logger.debug('All tasks are ready');
-    // Calculate points for each user based on all sources
-    // Update user points locally
-    // Update user points in CW20 contract
-    db.prepare<null, number>(
-      'UPDATE tasks SET status="processed" WHERE batch_id=$batch_id',
-    ).run(batchId);
+    logger.info('All tasks are ready');
+    let tsKf = 0;
+    if (batchId > 1) {
+      const query = db.query<{ ts: number }, [number, number]>(
+        'SELECT ts FROM batches WHERE batch_id = ? OR batch_id = ? - 1 ORDER BY batch_id DESC LIMIT 2',
+      );
+      const [ts1, ts2] = query.all(batchId, batchId).map((row) => row.ts);
+      tsKf = (ts1 - ts2) / (24 * 60 * 60);
+    } else {
+      tsKf = config.default_interval / (24 * 60 * 60);
+    }
+    logger.debug('tsKf = %d', tsKf);
+    const tx = db.transaction(() => {
+      // Calculate points for each user based on all sources
+      db.exec<[number]>(
+        `
+      INSERT 
+        INTO user_points (batch_id, address, asset_id, points) 
+        SELECT ud.batch_id, ud.address, ud.asset asset_id, FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
+      FROM 
+        user_data ud
+      LEFT JOIN 
+        prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
+      WHERE 
+        ud.batch_id = ?
+      GROUP BY 
+        ud.batch_id, ud.address, ud.asset
+      `,
+        [batchId],
+      );
+
+      db.exec<[number]>(
+        'UPDATE tasks SET status = "processed" WHERE batch_id = ?',
+        [batchId],
+      );
+
+      if (options.publish) {
+        // publish points to the CW20 contract
+        const query = db.query<{ batch_id: number; ts: number }, string>(
+          `SELECT batch_id, ts FROM batches WHERE status = ? ORDER BY batch_id ASC LIMIT 1`,
+        );
+        const all = query.all('new');
+        const batchIds = all.map((row) => row.batch_id);
+        const firstTs = all[0].ts;
+        // TODO: add kyc check
+        db.exec<[string]>(
+          `
+          INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place)
+          SELECT 
+            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0
+          FROM
+            user_points
+          WHERE
+            batch_id IN (?)
+          GROUP BY 
+            address, asset_id
+          ON CONFLICT (address, asset_id) DO UPDATE SET
+            change = user_points_public.points,
+            points = user_points_public.points + excluded.points`,
+          [batchIds.join(',')],
+        );
+        //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
+
+        // calc L1, L2 points
+        db.exec<[number, number, number]>(
+          `
+          UPDATE 
+            user_points_public
+          SET 
+            prev_points_l1 = points_l1,
+            prev_points_l2 = points_l2,
+            points_l1 = COALESCE(points_l1,0) + COALESCE((
+              SELECT 
+                FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
+              FROM 
+                referrals r
+              LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= ?)
+              WHERE
+                r.referrer = user_points_public.address 
+            ),0),
+            points_l2 = COALESCE(points_l2,0) + COALESCE((
+              SELECT 
+                FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
+              FROM 
+                referrals r2
+              LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= ?)
+              LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= ?)
+              WHERE
+                r2.referrer = user_points_public.address
+            ),0)
+          `,
+          [firstTs, firstTs, firstTs],
+        );
+
+        db.prepare<null, [string]>(
+          'UPDATE tasks SET status="processed" WHERE batch_id IN (?)',
+        ).run(batchIds.join(','));
+      }
+    });
+    tx();
   });
 
 const scheduleCli = program
@@ -413,6 +504,36 @@ scheduleCli
       id,
     );
     logger.info('Schedule has been deleted');
+  });
+
+const referralCli = program
+  .command('referral')
+  .description('Referral commands');
+
+referralCli
+  .command('add')
+  .argument('<referrer>', 'Address')
+  .argument('<referral>', 'Address of the referral')
+  .description('Add a referral')
+  .action((referrer, referral) => {
+    logger.info('Adding referral %s -> %s', referrer, referral);
+    db.prepare<null, [string, string]>(
+      'INSERT INTO referrals (referrer, referral, ts) VALUES (?, ?, 0)',
+    ).run(referrer, referral);
+  });
+
+referralCli
+  .command('list')
+  .argument('<address>', 'Address')
+  .description('List referrals')
+  .action((address) => {
+    logger.info('Referral list');
+    const query = db.query<{ address: string; referral: string }, string>(
+      'SELECT * FROM referrals WHERE address = ?',
+    );
+    for (const row of query.all(address)) {
+      logger.info('Address: %s\t Referral: %s', row.address, row.referral);
+    }
   });
 
 program.parse(process.argv);

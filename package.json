@@ -5,6 +5,7 @@
   },
   "scripts": {
     "crawl": "bun ./crawler",
+    "mrproper": "rimraf ./data.db*",
     "lint": "bun eslint . --fix"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "pino": "^9.1.0",
     "pino-pretty": "^11.1.0",
     "pm2": "^5.3.1",
+    "rimraf": "^5.0.7",
     "toml": "^3.0.0"
   },
   "devDependencies": {
