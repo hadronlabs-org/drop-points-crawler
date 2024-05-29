@@ -341,7 +341,7 @@ program
         //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
 
         // calc L1, L2 points
-        db.exec<[number, number, number, number, number]>(
+        db.exec<[{ $ts: number }]>(
           `
           UPDATE 
             user_points_public
@@ -353,8 +353,8 @@ program
                 FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
               FROM 
                 referrals r
-              LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= ?)
-              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= ?)
+              LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
+              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
               WHERE
                 r.referrer = user_points_public.address AND
                 k.address IS NOT NULL
@@ -364,15 +364,15 @@ program
                 FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
               FROM 
                 referrals r2
-              LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= ?)
-              LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= ?)
-              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= ?)
+              LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
+              LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= $ts)
+              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= $ts)
               WHERE
                 r2.referrer = user_points_public.address AND
                 k2.address IS NOT NULL
             ),0)
           `,
-          [firstTs, firstTs, firstTs, firstTs, firstTs],
+          [{ $ts: firstTs }],
         );
         db.exec<[string]>(
           'UPDATE batches SET status="processed" WHERE batch_id IN (?)',
