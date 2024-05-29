@@ -1,4 +1,4 @@
-export interface PositionResponse {
+export interface MarsPositionResponse {
   account_id: string;
   debts: {
     amount: string;

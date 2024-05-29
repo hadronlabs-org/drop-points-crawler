@@ -2,7 +2,7 @@ db_path = "data.db"
 log_level = "debug"
 assets = ["dATOM", 'dTIA']
 
-sources = ["osmosis-levana", "osmosis-mars", "kujira", "neutron"]
+sources = ["levana", "mars", "kujira", "neutron"]
 
 [protocols.neutron]
 source = "neutron"
@@ -16,7 +16,7 @@ denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 
 [protocols.osmosis-levana]
 rpc = "https://osmosis-rpc.polkachu.com:443/"
-source = "osmosis-levana"
+source = "levana"
 jitter = 10000
 concurrency_limit = 3
 pagination_limit = 300
@@ -27,7 +27,7 @@ lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
 
 [protocols.osmosis-mars]
 rpc = "https://osmosis-rpc.polkachu.com:443/"
-source = "osmosis-mars"
+source = "mars"
 jitter = 10000
 concurrency_limit = 3
 pagination_limit = 100

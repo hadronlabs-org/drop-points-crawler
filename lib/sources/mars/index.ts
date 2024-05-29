@@ -3,7 +3,7 @@ import { queryContractOnHeight } from '../../query';
 import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 import pLimit from 'p-limit';
 import { SourceInterface } from '../../../types/source';
-import { PositionResponse } from '../../../types/positionResponse';
+import { MarsPositionResponse } from '../../../types/marsPositionResponse';
 import { Logger } from 'pino';
 
 export default class MarsSource implements SourceInterface {
@@ -98,10 +98,10 @@ export default class MarsSource implements SourceInterface {
     creditContract: string,
     height: number,
     account: string,
-  ): Promise<PositionResponse> => {
+  ): Promise<MarsPositionResponse> => {
     const client = await this.getClient();
 
-    const data = await queryContractOnHeight<PositionResponse>(
+    const data = await queryContractOnHeight<MarsPositionResponse>(
       client,
       creditContract,
       height,
@@ -132,7 +132,7 @@ export default class MarsSource implements SourceInterface {
     return data.owner;
   };
 
-  getBalanceOrNull = (positions: PositionResponse, denom: string) => {
+  getBalanceOrNull = (positions: MarsPositionResponse, denom: string) => {
     if (positions.debts.length > 0 && positions.lends.length > 0) {
       const foundAsset = positions.lends.find((lend) => lend.denom === denom);
       if (foundAsset) return foundAsset.amount;
