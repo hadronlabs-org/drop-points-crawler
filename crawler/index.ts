@@ -342,7 +342,7 @@ program
         //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
 
         // calc L1, L2 points
-        db.exec<[number, number, number]>(
+        db.exec<[number, number, number, number, number]>(
           `
           UPDATE 
             user_points_public
@@ -355,8 +355,10 @@ program
               FROM 
                 referrals r
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= ?)
+              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= ?)
               WHERE
-                r.referrer = user_points_public.address 
+                r.referrer = user_points_public.address AND
+                k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
               SELECT 
@@ -365,16 +367,18 @@ program
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= ?)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= ?)
+              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= ?)
               WHERE
-                r2.referrer = user_points_public.address
+                r2.referrer = user_points_public.address AND
+                k2.address IS NOT NULL
             ),0)
           `,
-          [firstTs, firstTs, firstTs],
+          [firstTs, firstTs, firstTs, firstTs, firstTs],
         );
-
-        db.prepare<null, [string]>(
-          'UPDATE tasks SET status="processed" WHERE batch_id IN (?)',
-        ).run(batchIds.join(','));
+        db.exec<[string]>(
+          'UPDATE batches SET status="processed" WHERE batch_id IN (?)',
+          [batchIds.join(',')],
+        );
       }
     });
     tx();
