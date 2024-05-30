@@ -11,12 +11,11 @@ export default class MarsSource implements SourceInterface {
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<
-    string,
-    { nft_contract: string; credit_contract: string; denom: string }
-  > = {};
+  assets: Record<string, { denom: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
+  nftContract: string;
+  creditContract: string;
 
   getClient = async () => {
     if (!this.client) {
@@ -37,6 +36,16 @@ export default class MarsSource implements SourceInterface {
       throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
+
+    if (!params.nft_contract) {
+      throw new Error('No mars nft contract configured in params');
+    }
+    this.nftContract = params.nft_contract;
+
+    if (!params.credit_contract) {
+      throw new Error('No mars credit contract configured in params');
+    }
+    this.creditContract = params.credit_contract;
 
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
@@ -94,7 +103,7 @@ export default class MarsSource implements SourceInterface {
     return data.tokens;
   };
 
-  getAccountPositions = async (
+  getAccountPosition = async (
     creditContract: string,
     height: number,
     account: string,
@@ -133,7 +142,7 @@ export default class MarsSource implements SourceInterface {
   };
 
   getBalanceOrNull = (positions: MarsPositionResponse, denom: string) => {
-    if (positions.debts.length > 0 && positions.lends.length > 0) {
+    if (positions.lends.length > 0) {
       const foundAsset = positions.lends.find((lend) => lend.denom === denom);
       if (foundAsset) return foundAsset.amount;
     }
@@ -141,71 +150,101 @@ export default class MarsSource implements SourceInterface {
     return null;
   };
 
-  getAddressAndBalance = async (
-    nftContract: string,
-    creditContract: string,
-    denom: string,
+  getAddressAndBalances = async (
     height: number,
-    multiplier: number,
+    multipliers: Record<string, number>,
     accountToken: string,
-  ): Promise<{ address: string; balance: string; asset: string } | null> => {
-    const owner = await this.getAccountOwner(nftContract, height, accountToken);
+  ): Promise<{ address: string; balance: string; asset: string }[]> => {
+    const owner = await this.getAccountOwner(
+      this.nftContract,
+      height,
+      accountToken,
+    );
 
     const accountTokensOwned = await this.getAccountTokensOwned(
-      nftContract,
+      this.nftContract,
       height,
       owner,
     );
 
+    const result: { address: string; balance: string; asset: string }[] = [];
+
     if (accountTokensOwned.length === 1) {
-      const positions = await this.getAccountPositions(
-        creditContract,
+      const positions = await this.getAccountPosition(
+        this.creditContract,
         height,
         accountToken,
       );
-      const positionsBalance = this.getBalanceOrNull(positions, denom);
-      return positionsBalance
-        ? {
+
+      for (const [assetId, asset] of Object.entries(this.assets)) {
+        const { denom } = asset;
+        if (!denom) {
+          this.logger.warn('Denom %s is invalid, skipping', assetId);
+          break;
+        }
+
+        const positionsBalance = this.getBalanceOrNull(positions, denom);
+        if (positionsBalance) {
+          result.push({
             address: owner,
             balance: (
               (BigInt(positionsBalance) *
-                BigInt(Math.round(multiplier * 10000))) /
+                BigInt(Math.round(multipliers[assetId] * 10000))) /
               BigInt(10000)
             ).toString(),
             asset: denom,
-          }
-        : null;
+          });
+        }
+      }
+
+      return result;
     }
 
-    if (accountToken !== accountTokensOwned[0]) return null;
+    if (accountToken !== accountTokensOwned[0]) return [];
 
-    let aggregatedBalance = 0;
-    let hasFittingPosition = false;
-
+    const ownerPositions: Record<string, MarsPositionResponse> = {};
     accountTokensOwned.forEach(async (accountToken) => {
-      const currentPositions = await this.getAccountPositions(
-        creditContract,
+      const tokenPosition = await this.getAccountPosition(
+        this.creditContract,
         height,
         accountToken,
       );
-      const balance = this.getBalanceOrNull(currentPositions, denom);
-
-      if (balance && !hasFittingPosition) hasFittingPosition = true;
-
-      aggregatedBalance += balance ? parseInt(balance, 10) : 0;
+      ownerPositions[accountToken] = tokenPosition;
     });
 
-    return hasFittingPosition
-      ? {
+    Object.entries(this.assets).forEach(([assetId, asset]) => {
+      const { denom } = asset;
+      if (!denom) {
+        this.logger.warn('Denom %s is invalid, skipping', assetId);
+      }
+
+      let aggregatedBalance = 0;
+      let hasFittingPosition = false;
+
+      accountTokensOwned.forEach((accountToken) => {
+        const tokenPosition = ownerPositions[accountToken];
+
+        const balance = this.getBalanceOrNull(tokenPosition, denom);
+
+        if (balance && !hasFittingPosition) hasFittingPosition = true;
+
+        aggregatedBalance += balance ? parseInt(balance, 10) : 0;
+      });
+
+      if (hasFittingPosition) {
+        result.push({
           address: owner,
           balance: (
             (BigInt(aggregatedBalance) *
-              BigInt(Math.round(multiplier * 10000))) /
+              BigInt(Math.round(multipliers[assetId] * 10000))) /
             BigInt(10000)
           ).toString(),
           asset: denom,
-        }
-      : null;
+        });
+      }
+    });
+
+    return result;
   };
 
   getUsersBalances = async (
@@ -213,89 +252,70 @@ export default class MarsSource implements SourceInterface {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    for (const [assetId, asset] of Object.entries(this.assets)) {
-      let startAfter = undefined;
-      let accountTokens: string[] = [];
+    let startAfter = undefined;
+    let accountTokens: string[] = [];
 
-      const {
-        nft_contract: nftContract,
-        credit_contract: creditContract,
-        denom,
-      } = asset;
-      if (!nftContract || !creditContract || !denom) {
-        this.logger.warn('Asset %s is invalid, skipping', assetId);
-        break;
-      }
-
-      while (true) {
-        startAfter =
-          accountTokens.length > 0
-            ? accountTokens[accountTokens.length - 1]
-            : undefined;
-        accountTokens = await this.getAccountTokens(
-          nftContract,
-          height,
-          this.paginationLimit,
-          startAfter,
-        );
-        if (accountTokens.length === 0) break;
-
-        this.logger.debug(
-          'Fetching %s from %d balances with multiplier %d',
-          denom,
-          this.paginationLimit,
-          multipliers[assetId],
-        );
-
-        const withConcurrencyLimit = pLimit(this.concurrencyLimit);
-        const settledResults = await Promise.allSettled(
-          accountTokens.map((accountToken) =>
-            withConcurrencyLimit(
-              async () =>
-                await this.getAddressAndBalance(
-                  nftContract,
-                  creditContract,
-                  denom,
-                  height,
-                  multipliers[assetId],
-                  accountToken,
-                ),
-            ),
-          ),
-        );
-
-        this.logger.debug(
-          'Finished fetching %s from %d balances with multiplier %d',
-          denom,
-          this.paginationLimit,
-          multipliers[assetId],
-        );
-
-        cb(
-          settledResults.reduce(
-            (
-              filteredResult: {
-                address: string;
-                balance: string;
-                asset: string;
-              }[],
-              settledResult,
-            ) => {
-              if (settledResult.status === 'fulfilled' && settledResult.value) {
-                filteredResult.push(settledResult.value);
-              }
-              return filteredResult;
-            },
-            [],
-          ),
-        );
-      }
+    while (true) {
+      startAfter =
+        accountTokens.length > 0
+          ? accountTokens[accountTokens.length - 1]
+          : undefined;
+      accountTokens = await this.getAccountTokens(
+        this.nftContract,
+        height,
+        this.paginationLimit,
+        startAfter,
+      );
+      if (accountTokens.length === 0) break;
 
       this.logger.debug(
-        'Finished fetching all balances for %s source',
-        this.sourceName,
+        'Fetching assets info from current batch of %d balances',
+        this.paginationLimit,
+      );
+
+      const withConcurrencyLimit = pLimit(this.concurrencyLimit);
+      const settledResults = await Promise.allSettled(
+        accountTokens.map((accountToken) =>
+          withConcurrencyLimit(
+            async () =>
+              await this.getAddressAndBalances(
+                height,
+                multipliers,
+                accountToken,
+              ),
+          ),
+        ),
+      );
+
+      this.logger.debug(
+        'Finished fetching assets info from current batch of %d balances',
+        this.paginationLimit,
+      );
+
+      cb(
+        settledResults.reduce(
+          (
+            filteredResult: {
+              address: string;
+              balance: string;
+              asset: string;
+            }[],
+            settledResult,
+          ) => {
+            if (settledResult.status === 'fulfilled' && settledResult.value) {
+              filteredResult.push(...settledResult.value);
+            }
+            return filteredResult;
+          },
+          [],
+        ),
       );
     }
+
+    this.logger.debug(
+      'Finished fetching all balances for %s source',
+      this.sourceName,
+    );
   };
 
   getLastBlockHeight = async (): Promise<number> => {
