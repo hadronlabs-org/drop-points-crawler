@@ -22,7 +22,7 @@ export const connect = (
   if (createTables) {
     logger.debug('Creating table tasks if not exists');
     db.exec(
-      'CREATE TABLE IF NOT EXISTS batches (batch_id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER);',
+      'CREATE TABLE IF NOT EXISTS batches (batch_id INTEGER PRIMARY KEY AUTOINCREMENT, status TEXT, ts INTEGER);',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS prices (asset_id TEXT, batch_id INTEGER, price NUMERIC, ts INTEGER, PRIMARY KEY(batch_id DESC, asset_id));',
@@ -37,16 +37,38 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS referrals (address TEXT PRIMARY KEY, referal TEXT);',
+      'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, referal_points_l1 NUMERIC, referal_points_l2 NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+      'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+    );
+    db.exec(
+      `CREATE TABLE IF NOT EXISTS user_points_public 
+        (
+          address TEXT, 
+          asset_id TEXT, 
+          points NUMERIC NOT NULL, 
+          change NUMERIC NOT NULL, 
+          prev_points_l1 NUMERIC NOT NULL, 
+          prev_points_l2 NUMERIC NOT NULL, 
+          points_l1 NUMERIC NOT NULL, 
+          points_l2 NUMERIC NOT NULL, 
+          place INTEGER NOT NULL, 
+          PRIMARY KEY(address, asset_id)
+        );`,
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id INTEGER, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
     );
     db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS batches_status ON batches (status);');
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS referral_referral ON referrals (referral);',
+    );
+    db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS referral_referrer_referal ON referrals (referrer, referral);',
     );
 
     const row = db
