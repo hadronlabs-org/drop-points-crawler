@@ -1,12 +1,11 @@
-import NeutronSource from './neutron';
-// import * as KujiraSource from './kujira';
-// import * as OsmosisLevanaSource from './osmosis-levana';
-// import * as OsmosisMarsSource from './osmosis-mars';
+import LevanaSource from './levana';
+import MarsSource from './mars';
+import BankModuleSource from './bank-module';
 
 const out = {
-  neutron: NeutronSource,
-  // kujira: KujiraSource,
-  // 'osmosis-mars': OsmosisMarsSource,
-  // 'osmosis-levana': OsmosisLevanaSource,
+  neutron: BankModuleSource,
+  kujira: BankModuleSource,
+  mars: MarsSource,
+  levana: LevanaSource,
 };
 export default out;

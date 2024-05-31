@@ -9,11 +9,12 @@ import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 import { SourceInterface } from '../../../types/source';
 import { Logger } from 'pino';
 
-export default class NeutronSource implements SourceInterface {
+export default class BankModuleSource implements SourceInterface {
   rpc: string;
   limit: number;
   logger: Logger<never>;
   assets: Record<string, { denom: string }> = {};
+  sourceName: string;
   client: Tendermint34Client | undefined;
 
   getClient = async () => {
@@ -25,13 +26,19 @@ export default class NeutronSource implements SourceInterface {
 
   constructor(rpc: string, logger: Logger<never>, params: any) {
     this.logger = logger;
+
     if (!params.assets) {
-      throw new Error('No assets configured');
+      throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
+
+    if (!params.source) {
+      throw new Error('No source name configured in params');
+    }
+    this.sourceName = params.source;
+
     this.rpc = rpc;
     this.limit = parseInt(params.limit || '10000', 10);
-    this.assets = params.assets;
   }
 
   getDenomBalances = async (
@@ -114,7 +121,10 @@ export default class NeutronSource implements SourceInterface {
         }
         nextKey = newNextKey;
       } while (nextKey !== undefined && nextKey.length > 0);
-      this.logger.debug('Finished fetching balances for neutron source');
+      this.logger.debug(
+        'Finished fetching balances for %s source',
+        this.sourceName,
+      );
     }
   };
 }
