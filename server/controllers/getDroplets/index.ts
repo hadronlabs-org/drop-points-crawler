@@ -16,12 +16,22 @@ const getDroplets =
 
     logger.debug('Receiving request to get droplets for address %s', address);
 
-    const row = db
-      .query<
-        { points: number; place: number },
-        [string]
-      >('SELECT points, place FROM user_points_public WHERE address = ? LIMIT 1')
-      .get(req.input.address);
+    let row = null;
+    try {
+      row = db
+        .query<
+          { points: number; place: number },
+          [string]
+        >('SELECT points, place FROM user_points_public WHERE address = ? LIMIT 1')
+        .get(req.input.address);
+    } catch (e) {
+      logger.error('Unexpected error occurred: %s', (e as Error).message);
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Unexpected error occurred',
+      });
+    }
 
     if (!row) {
       logger.error(
