@@ -560,7 +560,7 @@ referralCli
 
 referralCli
   .command('sync')
-  .description('retrieve lask Referral data')
+  .description('retrieve last Referral data')
   .action(async () => {
     await updateReferralData(config, logger);
   });
