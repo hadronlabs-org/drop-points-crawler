@@ -2,6 +2,19 @@ import { Logger } from 'pino';
 import { connect } from '../../db/index';
 import { GraphQLClient, gql } from 'graphql-request';
 
+type UserBondsResponse =
+  | {
+      userBonds: {
+        nodes: {
+          id: string;
+          ref: string;
+          height: number;
+          ts: string;
+        }[];
+      };
+    }
+  | undefined;
+
 export const updateReferralData = async (
   config: any,
   logger: Logger<never>,
@@ -21,7 +34,7 @@ export const updateReferralData = async (
       userBonds(
         filter: { height: { greaterThan: $height } }
         orderBy: [HEIGHT_ASC]
-        first: 1
+        first: 1000
       ) {
         nodes {
           id
@@ -33,14 +46,21 @@ export const updateReferralData = async (
     }
   `;
   const client = new GraphQLClient(config.referral.graphql_url);
-  let data: any;
+
+  let data: UserBondsResponse;
   try {
-    data = (await client.request(GET_KYC, { height })) as any;
+    data = await client.request<UserBondsResponse>(GET_KYC, {
+      height,
+    });
   } catch (e) {
     logger.error(e);
     return;
   }
-  if (data.userBonds.nodes.length === 0) {
+  if (!data) {
+    logger.error('No data received');
+    return;
+  }
+  if (data && data.userBonds.nodes.length === 0) {
     logger.info('No new KYC data');
     return;
   }
@@ -48,7 +68,7 @@ export const updateReferralData = async (
     logger.debug('Adding KYC data %o', one);
     db.exec<[string, string, number, number]>(
       'INSERT INTO referrals (referrer, referral, height, ts) VALUES (?, ?, ?, ?)',
-      [one.ref, one.id, one.height, (new Date(one.date).getTime() / 1000) | 0],
+      [one.ref, one.id, one.height, (new Date(one.ts).getTime() / 1000) | 0],
     );
   }
 };
