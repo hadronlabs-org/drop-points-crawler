@@ -1,6 +1,6 @@
 import { Logger } from 'pino';
-import { connect } from '../../db/index';
 import { GraphQLClient, gql } from 'graphql-request';
+import Database from 'bun:sqlite';
 
 type UserBondsResponse =
   | {
@@ -16,10 +16,10 @@ type UserBondsResponse =
   | undefined;
 
 export const updateReferralData = async (
+  db: Database,
   config: any,
   logger: Logger<never>,
 ): Promise<void> => {
-  const db = connect(false, config, logger);
   logger.info('Updating KYC data');
   const height =
     db

@@ -562,7 +562,7 @@ referralCli
   .command('sync')
   .description('retrieve last Referral data')
   .action(async () => {
-    await updateReferralData(config, logger);
+    await updateReferralData(db, config, logger);
   });
 
 program.parse(process.argv);
