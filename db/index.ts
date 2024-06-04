@@ -37,7 +37,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, ts INTEGER);',
+      'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, height NUMERIC, ts INTEGER);',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
@@ -66,6 +66,9 @@ export const connect = (
     db.exec('CREATE INDEX IF NOT EXISTS batches_status ON batches (status);');
     db.exec(
       'CREATE INDEX IF NOT EXISTS referral_referral ON referrals (referral);',
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS referral_height ON referrals (height);',
     );
     db.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS referral_referrer_referal ON referrals (referrer, referral);',
