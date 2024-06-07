@@ -1,19 +1,7 @@
 import { Logger } from 'pino';
 import { GraphQLClient, gql } from 'graphql-request';
 import Database from 'bun:sqlite';
-
-type UserBondsResponse =
-  | {
-      userBonds: {
-        nodes: {
-          id: string;
-          ref: string;
-          height: number;
-          ts: string;
-        }[];
-      };
-    }
-  | undefined;
+import { UserBondsResponse } from '../../types/graphQL/userBondsResponse';
 
 export const updateReferralData = async (
   db: Database,

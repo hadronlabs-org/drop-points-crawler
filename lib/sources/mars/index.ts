@@ -1,9 +1,9 @@
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { queryContractOnHeight } from '../../query';
-import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
+import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import pLimit from 'p-limit';
-import { SourceInterface } from '../../../types/source';
-import { MarsPositionResponse } from '../../../types/marsPositionResponse';
+import { SourceInterface } from '../../../types/sources/source';
+import { MarsPositionResponse } from '../../../types/sources/marsPositionResponse';
 import { Logger } from 'pino';
 
 export default class MarsSource implements SourceInterface {
