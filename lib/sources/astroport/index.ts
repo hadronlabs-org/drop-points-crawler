@@ -135,7 +135,6 @@ export default class AstroportSource implements SourceInterface {
         lpContract,
       );
       const multiplier = multipliers[assetId] * exchangeRate;
-      // TODO: logs
 
       const client = await this.getClient();
       let startAfter = undefined;

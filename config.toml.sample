@@ -48,6 +48,17 @@ multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 pair_contract = "neutron15d0se9nw9stqx9ms9ey85gfpraqwl80t5urmjfk2jwtqxpxk3x3qctjt4n"
 
+[protocols.neutron-astroport-generator]
+rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+source = "generator"
+jitter = 10000
+pagination_limit = 50
+generator_contract = "neutron173fd8wpfzyqnfnpwq2zhtgdstujrjz2wkprkjfr6gqg4gknctjyq6m3tch"
+[protocols.neutron-astroport-generator.assets.dATOM]
+multiplier = 1
+denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
+pair_contract = "neutron15d0se9nw9stqx9ms9ey85gfpraqwl80t5urmjfk2jwtqxpxk3x3qctjt4n"
+
 # [protocols.neutron-levana]
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 # source = "mars"
