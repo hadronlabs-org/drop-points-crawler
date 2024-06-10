@@ -6,6 +6,7 @@ import sources from '../lib/sources';
 import { UserBalance } from '../types/userBalance';
 import fs from 'fs';
 import toml from 'toml';
+import { updateReferralData } from '../lib/referral';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -555,6 +556,13 @@ referralCli
     for (const row of query.all(address)) {
       logger.info('Address: %s\t Referral: %s', row.address, row.referral);
     }
+  });
+
+referralCli
+  .command('sync')
+  .description('retrieve last Referral data')
+  .action(async () => {
+    await updateReferralData(db, config, logger);
   });
 
 program.parse(process.argv);

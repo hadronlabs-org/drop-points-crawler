@@ -4,6 +4,9 @@ assets = ["dATOM", 'dTIA']
 
 sources = ["levana", "mars", "kujira", "neutron"]
 
+[referral]
+graphql_url = "http://127.0.0.1:3001"
+
 [protocols.neutron]
 source = "neutron"
 rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
