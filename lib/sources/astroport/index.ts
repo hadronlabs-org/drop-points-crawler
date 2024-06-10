@@ -8,6 +8,7 @@ import {
   QuerySupplyOfResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import pLimit from 'p-limit';
+import { UserBalance } from '../../../types/userBalance';
 
 export default class AstroportSource implements SourceInterface {
   rpc: string;
@@ -48,24 +49,23 @@ export default class AstroportSource implements SourceInterface {
     lpContract: string,
     height: number,
     assetId: string,
+    multiplier: number,
   ) => {
     const client = await this.getClient();
-    const balance = (
-      await queryContractOnHeight<{ balance: string }>(
-        client,
-        lpContract,
-        height,
-        {
-          balance_at: {
-            address: account,
-            block: height,
-          },
+    const { balance } = await queryContractOnHeight<{ balance: string }>(
+      client,
+      lpContract,
+      height,
+      {
+        balance_at: {
+          address: account,
+          block: height,
         },
-      )
-    ).balance;
+      },
+    );
     return {
       address: account,
-      balance,
+      balance: String(Math.round(Number(balance) * multiplier)),
       asset: assetId,
     };
   };
@@ -127,11 +127,14 @@ export default class AstroportSource implements SourceInterface {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    for (const [assetId, asset] of Object.entries(this.assets)) {
-      const lpContract = await this.getLpContract(height, asset.pair_contract);
+    for (const [
+      assetId,
+      { denom, pair_contract: pairContract },
+    ] of Object.entries(this.assets)) {
+      const lpContract = await this.getLpContract(height, pairContract);
       const exchangeRate = await this.getLpExchangeRate(
         height,
-        asset.denom,
+        denom,
         lpContract,
       );
       const multiplier = multipliers[assetId] * exchangeRate;
@@ -139,7 +142,7 @@ export default class AstroportSource implements SourceInterface {
       const client = await this.getClient();
       let startAfter = undefined;
       while (true) {
-        this.logger.info(`Fetching accounts at key ${startAfter}`);
+        this.logger.debug(`Fetching accounts starting after ${startAfter}`);
         const accountsData: { accounts: string[] } =
           await queryContractOnHeight(client, lpContract, height, {
             all_accounts: {
@@ -154,7 +157,7 @@ export default class AstroportSource implements SourceInterface {
         startAfter = accounts[accounts.length - 1];
 
         const withConcurrencyLimit = pLimit(this.concurrencyLimit);
-        let balances = (
+        let userBalances = (
           await Promise.allSettled(
             accounts.map((account) =>
               withConcurrencyLimit(
@@ -164,38 +167,23 @@ export default class AstroportSource implements SourceInterface {
                     lpContract,
                     height,
                     assetId,
+                    multiplier,
                   ),
               ),
             ),
           )
-        ).reduce(
-          (
-            filteredResult: {
-              address: string;
-              balance: string;
-              asset: string;
-            }[],
-            settledResult,
-          ) => {
-            if (settledResult.status === 'fulfilled' && settledResult.value) {
-              filteredResult.push(settledResult.value);
-            }
-            return filteredResult;
-          },
-          [],
-        );
-        balances = balances.filter((balance) => balance.balance != '0');
-        if (balances.length == 0) {
+        ).reduce((filteredResult: UserBalance[], settledResult) => {
+          if (settledResult.status === 'fulfilled' && settledResult.value) {
+            filteredResult.push(settledResult.value);
+          }
+          return filteredResult;
+        }, []);
+        userBalances = userBalances.filter((balance) => balance.balance != '0');
+        if (userBalances.length == 0) {
           continue;
         }
 
-        balances = balances.map((balance) => {
-          balance.balance = String(
-            Math.round(Number(balance.balance) * multiplier),
-          );
-          return balance;
-        });
-        cb(balances);
+        cb(userBalances);
       }
     }
   };

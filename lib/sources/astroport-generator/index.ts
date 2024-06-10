@@ -1,11 +1,10 @@
-import { SourceInterface } from '../../../types/source';
 import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
 import AstroportSource from '../astroport';
 import { queryContractOnHeight } from '../../query';
 
-export default class AstroportGeneratorSource implements SourceInterface {
+export default class AstroportGeneratorSource extends AstroportSource {
   rpc: string;
   paginationLimit: number;
   logger: Logger<never>;
@@ -13,7 +12,6 @@ export default class AstroportGeneratorSource implements SourceInterface {
   assets: Record<string, { denom: string; pair_contract: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
-  astroportSource: AstroportSource;
 
   getClient = async () => {
     if (!this.client) {
@@ -23,6 +21,7 @@ export default class AstroportGeneratorSource implements SourceInterface {
   };
 
   constructor(rpc: string, logger: Logger<never>, params: any) {
+    super(rpc, logger, params);
     this.logger = logger;
 
     if (!params.source) {
@@ -42,7 +41,6 @@ export default class AstroportGeneratorSource implements SourceInterface {
 
     this.rpc = rpc;
     this.paginationLimit = parseInt(params.paginationLimit || '50', 10);
-    this.astroportSource = new AstroportSource(this.rpc, this.logger, params);
   }
 
   getUsersBalances = async (
@@ -51,11 +49,8 @@ export default class AstroportGeneratorSource implements SourceInterface {
     cb: CbOnUserBalances,
   ): Promise<void> => {
     for (const [assetId, asset] of Object.entries(this.assets)) {
-      const lpContract = await this.astroportSource.getLpContract(
-        height,
-        asset.pair_contract,
-      );
-      const exchangeRate = await this.astroportSource.getLpExchangeRate(
+      const lpContract = await this.getLpContract(height, asset.pair_contract);
+      const exchangeRate = await this.getLpExchangeRate(
         height,
         asset.denom,
         lpContract,
@@ -65,8 +60,8 @@ export default class AstroportGeneratorSource implements SourceInterface {
       const client = await this.getClient();
       let startAfter = undefined;
       while (true) {
-        this.logger.info(`Fetching accounts at key ${startAfter}`);
-        const balances: any[] = await queryContractOnHeight(
+        this.logger.debug(`Fetching accounts starting after ${startAfter}`);
+        const balances: string[][] = await queryContractOnHeight(
           client,
           this.generatorContract,
           height,
