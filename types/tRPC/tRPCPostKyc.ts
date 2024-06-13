@@ -9,18 +9,22 @@ const tRPCPostKycRequestSchema = z.object({
       (value) => ALPHANUMERIC_REGEXP.test(value),
       'Address should be alphanumeric',
     ),
+  kycId: z.string(),
+  kycProvider: z.string(),
 });
 
-const tRPCPostKycResponseSchema = z.object({ success: z.boolean() });
+const tRPCPostKycResponseSchema = z.object({ referralCode: z.string() });
 
 type tRPCPostKycRequest = {
   input: {
     address: string;
+    kycId: string;
+    kycProvider: string;
   };
 };
 
 type tRPCPostKycResponse = {
-  success: boolean;
+  referralCode: string;
 };
 
 export {

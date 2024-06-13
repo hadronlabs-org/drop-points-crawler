@@ -20,12 +20,15 @@ const getDroplets =
     try {
       row = db
         .query<
-          { points: number; place: number },
+          { points: number; change: number; place: number },
           [string]
-        >('SELECT points, place FROM user_points_public WHERE address = ? LIMIT 1')
-        .get(req.input.address);
+        >('SELECT points, change, place FROM user_points_public WHERE address = ? LIMIT 1')
+        .get(address);
     } catch (e) {
-      logger.error('Unexpected error occurred: %s', (e as Error).message);
+      logger.error(
+        'Unexpected error occurred while fetching points: %s',
+        (e as Error).message,
+      );
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
@@ -44,12 +47,43 @@ const getDroplets =
       });
     }
 
+    let countResult;
+    try {
+      countResult = db
+        .query<
+          { total: number },
+          []
+        >('SELECT count(*) as total FROM user_points_public')
+        .get();
+    } catch (e) {
+      logger.error(
+        'Unexpected error occurred while fetching total: %s',
+        (e as Error).message,
+      );
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Unexpected error occurred',
+      });
+    }
+
+    if (!countResult) {
+      logger.error(
+        'Total could not be counted in public user points table',
+        address,
+      );
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Total is not accessible',
+      });
+    }
+
     logger.debug(
       'Request to get droplets for address %s successfully finished',
       address,
     );
 
-    return row;
+    return { ...row, totalPlaces: countResult.total };
   };
 
 export { getDroplets };

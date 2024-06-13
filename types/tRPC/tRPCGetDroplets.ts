@@ -13,7 +13,9 @@ const tRPCGetDropletsRequestSchema = z.object({
 
 const tRPCGetDropletsResponseSchema = z.object({
   points: z.number(),
+  change: z.number(),
   place: z.number(),
+  totalPlaces: z.number(),
 });
 
 type tRPCGetDropletsRequest = {
@@ -24,7 +26,9 @@ type tRPCGetDropletsRequest = {
 
 type tRPCGetDropletsResponse = {
   points: number;
+  change: number;
   place: number;
+  totalPlaces: number;
 };
 
 export {
