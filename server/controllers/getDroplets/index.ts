@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import {
   tRPCGetDropletsRequest,
   tRPCGetDropletsResponse,
-} from '../../../types/tRPCGetDroplets';
+} from '../../../types/tRPC/tRPCGetDroplets';
 import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 

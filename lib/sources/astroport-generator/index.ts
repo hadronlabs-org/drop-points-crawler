@@ -1,6 +1,6 @@
 import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
+import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import AstroportSource from '../astroport';
 import { queryContractOnHeight } from '../../query';
 

@@ -1,14 +1,14 @@
-import { SourceInterface } from '../../../types/source';
+import { SourceInterface } from '../../../types/sources/source';
 import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
+import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { queryContractOnHeight } from '../../query';
 import {
   QuerySupplyOfRequest,
   QuerySupplyOfResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import pLimit from 'p-limit';
-import { UserBalance } from '../../../types/userBalance';
+import { UserBalance } from '../../../types/sources/userBalance';
 
 export default class AstroportSource implements SourceInterface {
   rpc: string;

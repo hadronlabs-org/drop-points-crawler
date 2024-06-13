@@ -76,3 +76,25 @@ limit = 10000
 [protocols.kujira.assets.dATOM]
 multiplier = 1
 denom = "ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9"
+
+[protocols.secret]
+source = "secret"
+chain_id = "secret-4"
+rpc = "https://scrt.public-rpc.com"
+jitter = 10000
+pagination_limit = 10000
+graphql_url = "http://localhost:3001"
+[protocols.secret.assets.dATOM]
+multiplier = 1
+denom = "ibc/4F8BBC6C7C8E18B4BA9F4FF27918CD54B42F95D1B69EBFA73FB075C46BD2D0E9"
+
+[protocols.osmosis]
+source = "osmosis"
+chain_id = "osmosis-1"
+rpc = "https://rpc.osmosis.zone"
+jitter = 10000
+pagination_limit = 10000
+graphql_url = "http://localhost:3001"
+[protocols.osmosis.assets.dATOM]
+multiplier = 1
+denom = "ibc/0FC38457AF15A8BD1962BB97DDF1AB5EF4C74C5BFDAEF00289A9C405CBD609B0"
