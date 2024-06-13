@@ -1,7 +1,7 @@
 import {
   tRPCPostKycRequest,
   tRPCPostKycResponse,
-} from '../../../types/tRPCPostKyc';
+} from '../../../types/tRPC/tRPCPostKyc';
 import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 import { TRPCError } from '@trpc/server';

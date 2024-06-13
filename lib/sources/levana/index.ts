@@ -1,8 +1,8 @@
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import pLimit from 'p-limit';
 import { queryContractOnHeight } from '../../query';
-import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
-import { SourceInterface } from '../../../types/source';
+import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
+import { SourceInterface } from '../../../types/sources/source';
 import { Logger } from 'pino';
 
 export default class LevanaSource implements SourceInterface {

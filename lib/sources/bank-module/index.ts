@@ -5,8 +5,8 @@ import {
   QueryDenomOwnersResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
-import { CbOnUserBalances } from '../../../types/cbOnUserBalances';
-import { SourceInterface } from '../../../types/source';
+import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
+import { SourceInterface } from '../../../types/sources/source';
 import { Logger } from 'pino';
 
 export default class BankModuleSource implements SourceInterface {

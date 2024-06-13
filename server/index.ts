@@ -10,11 +10,11 @@ import { getLogger } from '../lib/logger';
 import {
   tRPCGetDropletsRequestSchema,
   tRPCGetDropletsResponseSchema,
-} from '../types/tRPCGetDroplets';
+} from '../types/tRPC/tRPCGetDroplets';
 import {
   tRPCPostKycRequestSchema,
   tRPCPostKycResponseSchema,
-} from '../types/tRPCPostKyc';
+} from '../types/tRPC/tRPCPostKyc';
 import { connect } from '../db';
 import { Command } from 'commander';
 

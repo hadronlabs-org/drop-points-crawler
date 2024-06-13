@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { connect } from '../db';
 import { getLogger } from '../lib/logger';
 import sources from '../lib/sources';
-import { UserBalance } from '../types/userBalance';
+import { UserBalance } from '../types/sources/userBalance';
 import fs from 'fs';
 import toml from 'toml';
 import { updateReferralData } from '../lib/referral';
