@@ -358,7 +358,7 @@ program
         //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
 
         // calc L1, L2 points
-        db.exec<[{ $ts: number }]>(
+        const stmt = db.prepare<null, { $ts: number }>(
           `
           UPDATE 
             user_points_public
@@ -389,8 +389,8 @@ program
                 k2.address IS NOT NULL
             ),0)
           `,
-          [{ $ts: firstTs }],
         );
+        stmt.run({ $ts: firstTs });
         db.exec<[string]>(
           'UPDATE batches SET status="processed" WHERE batch_id IN (?)',
           [batchIds.join(',')],
