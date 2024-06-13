@@ -1,7 +1,7 @@
-import { createHTTPServer } from '@trpc/server/adapters/standalone';
+import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import toml from 'toml';
 import fs from 'fs';
-
+import express from 'express';
 import { publicProcedure, router } from './trpc';
 
 import { getDroplets } from './controllers/getDroplets';
@@ -17,6 +17,8 @@ import {
 } from '../types/tRPC/tRPCPostKyc';
 import { connect } from '../db';
 import { Command } from 'commander';
+
+const expressApp = express();
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -43,11 +45,19 @@ const appRouter = router({
 
 export type AppRouter = typeof appRouter;
 
-const server = createHTTPServer({
-  router: appRouter,
+expressApp.use(
+  '/server',
+  createExpressMiddleware({
+    router: appRouter,
+  }),
+);
+
+expressApp.get('/uptime', (_req, res) => {
+  res.send((process.uptime() * 1000).toString());
 });
+
 const port = process.env.PORT || 3000;
 
-server.listen(port, () => {
-  logger.debug(`Server is running on http://localhost:${port}`);
+expressApp.listen(port, () => {
+  logger.info(`Server started on port ${port}`);
 });
