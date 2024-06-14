@@ -340,7 +340,7 @@ program
         const batchIds = all.map((row) => row.batch_id);
         const firstTs = all[0].ts;
         // TODO: add kyc check
-        db.exec<[string]>(
+        db.prepare<null, string>(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place)
           SELECT 
@@ -354,8 +354,7 @@ program
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = user_points_public.points,
             points = user_points_public.points + excluded.points`,
-          [batchIds.join(',')],
-        );
+        ).run(batchIds.join(','));
         //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
 
         // calc L1, L2 points
@@ -392,10 +391,9 @@ program
           `,
         );
         stmt.run({ $ts: firstTs });
-        db.exec<[string]>(
-          'UPDATE batches SET status="processed" WHERE batch_id IN (?)',
-          [batchIds.join(',')],
-        );
+        db.prepare<null, string>(
+          `UPDATE batches SET status="processed" WHERE batch_id IN (?)`,
+        ).run(batchIds.join(','));
       }
     });
     tx();
