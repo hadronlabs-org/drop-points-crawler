@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 import { TRPCError } from '@trpc/server';
-import { generate } from 'shortid';
+import { customAlphabet } from 'nanoid';
 
 import {
   tRPCPostKycRequest,
@@ -14,6 +14,11 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 });
 
 const MAX_REFERRAL_CODE_ATTEMPTS = 100;
+
+const REFERRAL_CODE_LENGTH = 8;
+
+const CUSTOM_ALPHABET =
+  '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const postKyc =
   (db: Database, logger: Logger) =>
@@ -48,12 +53,17 @@ const postKyc =
       });
     }
 
+    const generateReferralCode = customAlphabet(
+      CUSTOM_ALPHABET,
+      REFERRAL_CODE_LENGTH,
+    );
+
     let referralCode = null;
     let attemptsNumber = 0;
     while (true) {
       attemptsNumber += 1;
 
-      referralCode = generate();
+      referralCode = generateReferralCode();
 
       let codeFromDatabaseResult = null;
       try {

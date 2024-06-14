@@ -1,14 +1,8 @@
 import { z } from 'zod';
-
-const ALPHANUMERIC_REGEXP = /^[a-z\d]+$/;
+import { neutronAddress } from './neutronAddress';
 
 const tRPCGetDropletsRequestSchema = z.object({
-  address: z
-    .string()
-    .refine(
-      (value) => ALPHANUMERIC_REGEXP.test(value),
-      'Address should be alphanumeric',
-    ),
+  address: neutronAddress,
 });
 
 const tRPCGetDropletsResponseSchema = z.object({

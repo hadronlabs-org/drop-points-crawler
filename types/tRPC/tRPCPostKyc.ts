@@ -1,14 +1,8 @@
 import { z } from 'zod';
-
-const ALPHANUMERIC_REGEXP = /^[a-z\d]+$/;
+import { neutronAddress } from './neutronAddress';
 
 const tRPCPostKycRequestSchema = z.object({
-  address: z
-    .string()
-    .refine(
-      (value) => ALPHANUMERIC_REGEXP.test(value),
-      'Address should be alphanumeric',
-    ),
+  address: neutronAddress,
   kycId: z.string(),
   kycProvider: z.string(),
 });
