@@ -7,6 +7,7 @@ import { UserBalance } from '../types/sources/userBalance';
 import fs from 'fs';
 import toml from 'toml';
 import { updateReferralData } from '../lib/referral';
+import { toNeutronAddress } from '../lib/neutron-address';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -229,7 +230,7 @@ program
           for (const balance of balances) {
             query.run(
               batchId,
-              balance.address,
+              toNeutronAddress(balance.address),
               protocolId,
               height,
               balance.asset,
