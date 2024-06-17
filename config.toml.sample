@@ -1,6 +1,7 @@
 db_path = "data.db"
 log_level = "debug"
 assets = ["dATOM", 'dTIA']
+default_interval = 43200                          #seconds
 
 sources = ["levana", "mars", "kujira", "neutron"]
 
