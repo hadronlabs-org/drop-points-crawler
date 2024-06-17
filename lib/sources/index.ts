@@ -4,6 +4,7 @@ import BankModuleSource from './bank-module';
 import SubqueryIndexerSource from './subquery-indexer';
 import AstroportSource from './astroport';
 import AstroportGeneratorSource from './astroport-generator';
+import ApolloSource from './apollo';
 
 const out = {
   neutron: BankModuleSource,
@@ -14,5 +15,6 @@ const out = {
   secret: SubqueryIndexerSource,
   astroport: AstroportSource,
   generator: AstroportGeneratorSource,
+  apollo: ApolloSource,
 };
 export default out;
