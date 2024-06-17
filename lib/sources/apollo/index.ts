@@ -34,11 +34,16 @@ export default class ApolloSource extends BankModuleSource {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
+    const client = await this.getClient();
+    const astroportSource = new AstroportSource(this.rpc, this.logger, {
+      source: this.sourceName,
+      assets: this.assets,
+    });
+
     for (const [
       assetId,
       { denom, vault_contract: vaultContract },
     ] of Object.entries(this.assets)) {
-      const client = await this.getClient();
       const {
         staked_base_tokens: stakedBaseTokens,
         vault_token_supply: vaultTokenSupply,
@@ -61,10 +66,6 @@ export default class ApolloSource extends BankModuleSource {
       });
       const vaultToLpExchangeRate =
         Number(stakedBaseTokens) / Number(vaultTokenSupply);
-      const astroportSource = new AstroportSource(this.rpc, this.logger, {
-        source: this.sourceName,
-        assets: this.assets,
-      });
       const lpToAssetExchangeRate = await astroportSource.getLpExchangeRate(
         height,
         denom,
@@ -97,7 +98,7 @@ export default class ApolloSource extends BankModuleSource {
           break;
         }
         nextKey = newNextKey;
-      } while (nextKey != undefined && nextKey.length > 0);
+      } while (nextKey !== undefined && nextKey.length > 0);
     }
   };
 }
