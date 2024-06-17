@@ -78,10 +78,7 @@ const getDroplets =
       });
     }
 
-    logger.debug(
-      'Request to get droplets for address %s successfully finished',
-      address,
-    );
+    logger.debug('Request to get droplets for address %s is finished', address);
 
     return { ...row, totalPlaces: countResult.total };
   };

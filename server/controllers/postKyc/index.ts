@@ -100,10 +100,7 @@ const postKyc =
       throw UNEXPECTED_TRPC_ERROR;
     }
 
-    logger.debug(
-      'Request to post KYC for address %s successfully finished',
-      address,
-    );
+    logger.debug('Request to post KYC for address %s is finished', address);
 
     return { referralCode };
   };

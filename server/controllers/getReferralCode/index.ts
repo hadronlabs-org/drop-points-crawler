@@ -48,7 +48,7 @@ const getReferralCode =
     }
 
     logger.debug(
-      'Request to get a referral code for address %s successfully finished',
+      'Request to get a referral code for address %s is finished',
       address,
     );
 

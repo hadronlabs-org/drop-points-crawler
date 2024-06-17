@@ -8,6 +8,7 @@ import { getDroplets } from './controllers/getDroplets';
 import { postKyc } from './controllers/postKyc';
 import { getReferralCode } from './controllers/getReferralCode';
 import { getReferrer } from './controllers/getReferrer';
+import { getRules } from './controllers/getRules';
 import { getLogger } from '../lib/logger';
 import {
   tRPCGetDropletsRequestSchema,
@@ -25,8 +26,14 @@ import {
   tRPCGetReferrerRequestSchema,
   tRPCGetReferrerResponseSchema,
 } from '../types/tRPC/tRPCGetReferrer';
+import {
+  tRPCGetReferralsRequestSchema,
+  tRPCGetReferralsResponseSchema,
+} from '../types/tRPC/tRPCGetReferrals';
+import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
 import { connect } from '../db';
 import { Command } from 'commander';
+import { getReferrals } from "./controllers/getReferrals";
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -57,6 +64,13 @@ const appRouter = router({
     .input(tRPCGetReferrerRequestSchema)
     .output(tRPCGetReferrerResponseSchema)
     .query(getReferrer(db, logger)),
+  getReferrals: publicProcedure
+    .input(tRPCGetReferralsRequestSchema)
+    .output(tRPCGetReferralsResponseSchema)
+    .query(getReferrals(db, logger)),
+  getRules: publicProcedure
+    .output(tRPCGetRulesResponseSchema)
+    .query(getRules(db, logger)),
 });
 
 const server = createHTTPServer({
