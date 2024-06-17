@@ -6,6 +6,8 @@ import { publicProcedure, router } from './trpc';
 
 import { getDroplets } from './controllers/getDroplets';
 import { postKyc } from './controllers/postKyc';
+import { getReferralCode } from './controllers/getReferralCode';
+import { getReferrer } from './controllers/getReferrer';
 import { getLogger } from '../lib/logger';
 import {
   tRPCGetDropletsRequestSchema,
@@ -15,6 +17,14 @@ import {
   tRPCPostKycRequestSchema,
   tRPCPostKycResponseSchema,
 } from '../types/tRPC/tRPCPostKyc';
+import {
+  tRPCGetReferralCodeRequestSchema,
+  tRPCGetReferralCodeResponseSchema,
+} from '../types/tRPC/tRPCGetReferralCode';
+import {
+  tRPCGetReferrerRequestSchema,
+  tRPCGetReferrerResponseSchema,
+} from '../types/tRPC/tRPCGetReferrer';
 import { connect } from '../db';
 import { Command } from 'commander';
 
@@ -39,9 +49,15 @@ const appRouter = router({
     .input(tRPCPostKycRequestSchema)
     .output(tRPCPostKycResponseSchema)
     .mutation(postKyc(db, logger)),
+  getReferralCode: publicProcedure
+    .input(tRPCGetReferralCodeRequestSchema)
+    .output(tRPCGetReferralCodeResponseSchema)
+    .query(getReferralCode(db, logger)),
+  getReferrer: publicProcedure
+    .input(tRPCGetReferrerRequestSchema)
+    .output(tRPCGetReferrerResponseSchema)
+    .query(getReferrer(db, logger)),
 });
-
-export type AppRouter = typeof appRouter;
 
 const server = createHTTPServer({
   router: appRouter,
