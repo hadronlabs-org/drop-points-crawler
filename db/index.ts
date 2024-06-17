@@ -54,6 +54,7 @@ export const connect = (
           points_l1 NUMERIC NOT NULL, 
           points_l2 NUMERIC NOT NULL, 
           place INTEGER NOT NULL, 
+          prev_place INTEGER NOT NULL,
           PRIMARY KEY(address, asset_id)
         );`,
     );
