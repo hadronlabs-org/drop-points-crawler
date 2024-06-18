@@ -6,24 +6,23 @@ import { TRPCError } from '@trpc/server';
 const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
   logger.debug('Receiving request to get Droplet rules');
 
-  let rows = null;
+  type dbResponse = {
+    strategy: string;
+    description: string;
+    dropRate: number;
+    chain: string;
+    status: boolean;
+    link: string;
+    linkText: string;
+    type: string;
+  };
+  let rows: dbResponse[] | null;
   try {
     rows = db
       .query<
-        {
-          strategy: string;
-          description: string;
-          dropRate: number;
-          chain: string;
-          status: boolean;
-          link: string;
-          linkText: string;
-          type: string;
-        },
+        dbResponse,
         []
-      >(
-        'SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type FROM user_points_rules',
-      )
+      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type FROM user_points_rules')
       .all();
   } catch (e) {
     logger.error('Unexpected error occurred while fetching Droplet rules');

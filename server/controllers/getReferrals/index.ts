@@ -16,11 +16,15 @@ const getReferrals =
 
     logger.debug('Receiving request to get referrals for address %s', address);
 
-    let rows = null;
+    type dbResponse = {
+      referral: string;
+    };
+
+    let rows: dbResponse[] | null;
     try {
       rows = db
         .query<
-          { referral: string },
+          dbResponse,
           [string]
         >('SELECT referral FROM referrals WHERE referrer = ?')
         .all(address);
