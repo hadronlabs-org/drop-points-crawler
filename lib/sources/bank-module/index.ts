@@ -11,7 +11,7 @@ import { Logger } from 'pino';
 
 export default class BankModuleSource implements SourceInterface {
   rpc: string;
-  limit: number;
+  paginationLimit: number;
   logger: Logger<never>;
   assets: Record<string, { denom: string }> = {};
   sourceName: string;
@@ -38,7 +38,7 @@ export default class BankModuleSource implements SourceInterface {
     this.sourceName = params.source;
 
     this.rpc = rpc;
-    this.limit = parseInt(params.limit || '10000', 10);
+    this.paginationLimit = parseInt(params.pagination_limit || '10000', 10);
   }
 
   getDenomBalances = async (
@@ -59,7 +59,7 @@ export default class BankModuleSource implements SourceInterface {
     const request = {
       denom: asset.denom,
       pagination: PageRequest.fromPartial({
-        limit: BigInt(this.limit),
+        limit: BigInt(this.paginationLimit),
         key: nextKey,
       }),
     };

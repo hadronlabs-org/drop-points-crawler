@@ -3,10 +3,6 @@ import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { queryContractOnHeight } from '../../query';
-import {
-  QuerySupplyOfRequest,
-  QuerySupplyOfResponse,
-} from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import pLimit from 'p-limit';
 import { UserBalance } from '../../../types/sources/userBalance';
 
@@ -90,9 +86,10 @@ export default class AstroportSource implements SourceInterface {
   getLpExchangeRate = async (
     height: number,
     denom: string,
-    lpContract: string,
+    pairContract: string,
   ): Promise<number> => {
     const client = await this.getClient();
+    const lpContract = await this.getLpContract(height, pairContract);
     const lpTotalSupply = await queryContractOnHeight<string>(
       client,
       lpContract,
@@ -104,20 +101,21 @@ export default class AstroportSource implements SourceInterface {
       },
     );
 
-    const path = '/cosmos.bank.v1beta1.Query/SupplyOf';
-    const request = {
-      denom,
-    };
-    const data = QuerySupplyOfRequest.encode(request).finish();
-    const response = await client.abciQuery({ path, data, height });
-    this.logger.trace('Got response %o', response);
-    if (response.code !== 0) {
-      throw new Error(
-        `Tendermint query error: ${response.log} Code: ${response.code}`,
-      );
-    }
-    const assetTotalSupply = QuerySupplyOfResponse.decode(response.value).amount
-      .amount;
+    const pool = await queryContractOnHeight<{
+      assets: {
+        info: {
+          native_token: {
+            denom: string;
+          };
+        };
+        amount: string;
+      }[];
+    }>(client, pairContract, height, {
+      pool: {},
+    });
+    const assetTotalSupply = pool.assets.find(
+      (asset) => asset.info.native_token.denom === denom,
+    )!.amount;
 
     return Number(assetTotalSupply) / Number(lpTotalSupply);
   };
@@ -135,7 +133,7 @@ export default class AstroportSource implements SourceInterface {
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
-        lpContract,
+        pairContract,
       );
       const multiplier = multipliers[assetId] * exchangeRate;
 

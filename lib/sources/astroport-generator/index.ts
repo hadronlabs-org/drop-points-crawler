@@ -13,13 +13,6 @@ export default class AstroportGeneratorSource extends AstroportSource {
   sourceName: string;
   client: Tendermint34Client | undefined;
 
-  getClient = async () => {
-    if (!this.client) {
-      this.client = await Tendermint34Client.connect(this.rpc);
-    }
-    return this.client;
-  };
-
   constructor(rpc: string, logger: Logger<never>, params: any) {
     super(rpc, logger, params);
     this.logger = logger;
@@ -48,12 +41,15 @@ export default class AstroportGeneratorSource extends AstroportSource {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    for (const [assetId, asset] of Object.entries(this.assets)) {
-      const lpContract = await this.getLpContract(height, asset.pair_contract);
+    for (const [
+      assetId,
+      { denom, pair_contract: pairContract },
+    ] of Object.entries(this.assets)) {
+      const lpContract = await this.getLpContract(height, pairContract);
       const exchangeRate = await this.getLpExchangeRate(
         height,
-        asset.denom,
-        lpContract,
+        denom,
+        pairContract,
       );
       const multiplier = multipliers[assetId] * exchangeRate;
 
@@ -87,11 +83,5 @@ export default class AstroportGeneratorSource extends AstroportSource {
         );
       }
     }
-  };
-
-  getLastBlockHeight = async (): Promise<number> => {
-    const client = await this.getClient();
-    const status = await client.status();
-    return status.syncInfo.latestBlockHeight;
   };
 }

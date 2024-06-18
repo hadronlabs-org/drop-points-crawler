@@ -12,7 +12,7 @@ graphql_url = "http://127.0.0.1:3001"
 source = "neutron"
 rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 jitter = 10000
-limit = 10000
+pagination_limit = 10000
 [protocols.neutron.assets.dATOM]
 multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
@@ -62,6 +62,16 @@ generator_contract = "neutron173fd8wpfzyqnfnpwq2zhtgdstujrjz2wkprkjfr6gqg4gknctj
 multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 pair_contract = "neutron15d0se9nw9stqx9ms9ey85gfpraqwl80t5urmjfk2jwtqxpxk3x3qctjt4n"
+
+[protocols.neutron-apollo]
+rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+source = "apollo"
+jitter = 10000
+pagination_limit = 10000
+[protocols.neutron-apollo.assets.dATOM]
+multiplier = 1
+denom = "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81"
+vault_contract = "neutron14xx9hcw0cyw2vtxh586h5usymfyk06jnj677awhntrkxtm72amrsmj5fxt"
 
 # [protocols.neutron-levana]
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
