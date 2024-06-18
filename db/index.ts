@@ -66,9 +66,7 @@ export const connect = (
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT);',
     );
-    db.exec(
-      'CREATE TABLE IF NOT EXISTS blacklist (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT);',
-    );
+    db.exec('CREATE TABLE IF NOT EXISTS blacklist (address TEXT UNIQUE);');
     db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
     );
