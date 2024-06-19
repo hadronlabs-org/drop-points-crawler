@@ -345,9 +345,9 @@ program
         // TODO: add kyc check
         db.prepare<null, string>(
           `
-          INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place)
+          INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT 
-            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0
+            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
@@ -392,6 +392,15 @@ program
                 k2.address IS NOT NULL
             ),0)
           `,
+        );
+        db.exec(
+          `WITH ranked as (
+          select address, ROW_NUMBER() OVER (order by points + points_l1 + points_l2 DESC) place FROM user_points_public
+        )
+        UPDATE user_points_public
+        SET
+          prev_place = place,
+          place = (SELECT place FROM ranked WHERE address = user_points_public.address)`,
         );
         stmt.run({ $ts: firstTs });
         db.prepare<null, string>(
