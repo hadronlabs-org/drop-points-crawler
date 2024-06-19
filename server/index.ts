@@ -33,7 +33,7 @@ import {
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
 import { connect } from '../db';
 import { Command } from 'commander';
-import { getReferrals } from "./controllers/getReferrals";
+import { getReferrals } from './controllers/getReferrals';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
