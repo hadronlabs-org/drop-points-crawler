@@ -15,7 +15,7 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 
 const MAX_REFERRAL_CODE_ATTEMPTS = 100;
 
-const REFERRAL_CODE_LENGTH = 7;
+const REFERRAL_CODE_LENGTH = 8;
 
 const CUSTOM_ALPHABET =
   '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -29,6 +29,29 @@ const postKyc =
     const ts = parseInt((Date.now() / 1000).toString(), 10);
 
     logger.debug('Receiving request to post KYC for address %s', address);
+
+    let blacklistResult = null;
+    try {
+      blacklistResult = db
+        .query<
+          { address: number },
+          [string]
+        >('SELECT address FROM blacklist WHERE address = ?')
+        .get(address);
+    } catch (e) {
+      logger.error(
+        'Unexpected error occurred while checking if address in the blacklist: %s',
+        (e as Error).message,
+      );
+      throw UNEXPECTED_TRPC_ERROR;
+    }
+
+    if (blacklistResult) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'This address is blacklisted',
+      });
+    }
 
     let idResult = null;
     try {

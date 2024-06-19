@@ -7,6 +7,11 @@ import {
 import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 
+const UNEXPECTED_TRPC_ERROR = new TRPCError({
+  code: 'INTERNAL_SERVER_ERROR',
+  message: 'Unexpected error occurred',
+});
+
 const getReferralCode =
   (db: Database, logger: Logger) =>
   (req: tRPCGetReferralCodeRequest): tRPCGetReferralCodeResponse => {
@@ -18,6 +23,29 @@ const getReferralCode =
       'Receiving request to get a referral code for address %s',
       address,
     );
+
+    let blacklistResult = null;
+    try {
+      blacklistResult = db
+        .query<
+          { address: number },
+          [string]
+        >('SELECT address FROM blacklist WHERE address = ?')
+        .get(address);
+    } catch (e) {
+      logger.error(
+        'Unexpected error occurred while checking if address in the blacklist: %s',
+        (e as Error).message,
+      );
+      throw UNEXPECTED_TRPC_ERROR;
+    }
+
+    if (blacklistResult) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'This address is blacklisted',
+      });
+    }
 
     let row = null;
     try {
@@ -33,10 +61,7 @@ const getReferralCode =
         (e as Error).message,
       );
 
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Unexpected error occurred',
-      });
+      throw UNEXPECTED_TRPC_ERROR;
     }
 
     if (!row) {
