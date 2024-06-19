@@ -9,6 +9,7 @@ const tRPCDropletRuleSchema = z.object({
   link: z.string(),
   linkText: z.string(),
   type: z.string(),
+  featured: z.boolean(),
 });
 
 const tRPCGetRulesResponseSchema = z.object({
@@ -24,6 +25,7 @@ type tRPCRule = {
   link: string;
   linkText: string;
   type: string;
+  featured: boolean;
 };
 
 type tRPCGetRulesResponse = {

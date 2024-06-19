@@ -42,12 +42,12 @@ const getReferrals =
 
     if (!rows) {
       logger.error(
-        'Referrals for %s are not found in the referrals table',
+        'Referrals for %s cannot be fetched in the referrals table',
         address,
       );
       throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Referrals are not found',
+        code: 'UNPROCESSABLE_CONTENT',
+        message: 'Referrals cannot be fetched',
       });
     }
 
