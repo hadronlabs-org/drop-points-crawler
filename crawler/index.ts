@@ -322,6 +322,8 @@ program
         prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
       WHERE 
         ud.batch_id = ?
+      AND
+        address NOT IN (select address from blacklist)
       GROUP BY 
         ud.batch_id, ud.address, ud.asset
       `,
@@ -563,6 +565,28 @@ referralCli
   .description('retrieve last Referral data')
   .action(async () => {
     await updateReferralData(db, config, logger);
+  });
+
+const blacklistCli = program
+  .command('blacklist')
+  .description('Edit address blacklist');
+
+blacklistCli
+  .command('add')
+  .argument('<address>', 'Address')
+  .description('Insert address into blacklist')
+  .action((address) => {
+    db.prepare('INSERT INTO blacklist (address) VALUES (?)').run(address);
+    logger.info('Inserted %s into blacklist', address);
+  });
+
+blacklistCli
+  .command('remove')
+  .argument('<address>', 'Address')
+  .description('Remove address from blacklist')
+  .action((address) => {
+    db.prepare('DELETE FROM blacklist WHERE address = ?').run(address);
+    logger.info('Removed %s from blacklist', address);
   });
 
 program.parse(process.argv);
