@@ -1,6 +1,9 @@
 import { Database, constants } from 'bun:sqlite';
 import { Logger } from 'pino';
 
+import { dropletRuleSchema } from '../types/config/dropletRule';
+import { getValidData } from '../types/utils';
+
 export const connect = (
   createTables = false,
   config: any,
@@ -61,6 +64,9 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id INTEGER, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
     );
     db.exec(
+      'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT);',
+    );
+    db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
     );
     db.exec('CREATE INDEX IF NOT EXISTS batches_status ON batches (status);');
@@ -85,9 +91,46 @@ export const connect = (
         for (const [asset_id, asset] of Object.entries(
           (protocol as any).assets,
         )) {
+          const protocolObject = protocol as any;
+          const assetObject = asset as any;
+
           db.exec(
             'INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled) VALUES (?, ?, ?, ?, ?, ?)',
-            [protocol_id, asset_id, (asset as any).multiplier, 0, 0, true],
+            [protocol_id, asset_id, assetObject.multiplier, 0, 0, true],
+          );
+
+          let dropletRule;
+          try {
+            dropletRule = getValidData(
+              {
+                strategy: assetObject.strategy,
+                description: assetObject.description,
+                multiplier: assetObject.multiplier,
+                chain: protocolObject.chain_name,
+                status: assetObject.status,
+                link: protocolObject.link,
+                link_text: protocolObject.link_text,
+                type: assetObject.type,
+              },
+              dropletRuleSchema,
+              logger,
+            );
+          } catch (e) {
+            continue;
+          }
+
+          db.exec(
+            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+              dropletRule.strategy,
+              dropletRule.description,
+              dropletRule.multiplier,
+              dropletRule.chain,
+              dropletRule.status,
+              dropletRule.link,
+              dropletRule.link_text,
+              dropletRule.type,
+            ],
           );
         }
       }

@@ -18,6 +18,7 @@ const config = toml.parse(
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
+
 const logger = getLogger(config);
 const db = connect(true, config, logger);
 

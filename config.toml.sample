@@ -5,6 +5,11 @@ default_interval = 43200                          #seconds
 
 sources = ["levana", "mars", "kujira", "neutron"]
 
+default_interval = 60
+
+l1_percent = 25
+l2_percent = 12
+
 [referral]
 graphql_url = "http://127.0.0.1:3001"
 
@@ -13,8 +18,15 @@ source = "neutron"
 rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 jitter = 10000
 pagination_limit = 10000
+link = "https://www.neutron.org"
+link_text = "Go to Neutron"
+chain_name = "neutron"
 [protocols.neutron.assets.dATOM]
+strategy = "dATOM"
+description = "Holding dATOM on Neutron"
+type = "single-sided"
 multiplier = 1
+status = true
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 
 
@@ -24,8 +36,15 @@ source = "levana"
 jitter = 10000
 concurrency_limit = 3
 pagination_limit = 300
+link = "https://www.levana.finance"
+link_text = "Go to Levana"
+chain_name = "neutron"
 [protocols.osmosis-levana.assets.dATOM]
+strategy = "dATOM"
+description = "Holding dATOM on Levana"
+type = "single-sided"
 multiplier = 2
+status = true
 lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
 
 
@@ -33,13 +52,78 @@ lp_token = "osmo1kp5nhg2eqcv8zwc0ndgjj7w8pk8dzhu58jfk4q0ptfywj2m42qvqhh9dcv"
 rpc = "https://osmosis-rpc.polkachu.com:443/"
 source = "mars"
 jitter = 10000
-concurrency_limit = 3
+concurrency_limit = 10
 pagination_limit = 100
 nft_contract = "osmo1450hrg6dv2l58c0rvdwx8ec2a0r6dd50hn4frk370tpvqjhy8khqw7sw09"
 credit_contract = "osmo1f2m24wktq0sw3c0lexlg7fv4kngwyttvzws3a3r3al9ld2s2pvds87jqvf"
+chain_name = "osmosis"
+link = "https://app.marsprotocol.io"
+link_text = "Go to Mars"
 [protocols.osmosis-mars.assets.dATOM]
+strategy = "dATOM"
+description = "Lending dATOM on Mars"
+type = "lend-or-leverage"
 multiplier = 1
+status = true
 denom = "ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2"
+#
+## [protocols.neutron-levana]
+## rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+## source = "mars"
+## [protocols.neutron-levana.assets.dATOM]
+## neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
+
+[protocols.kujira]
+source = "kujira"
+rpc = "https://kujira-rpc.publicnode.com:443/"
+jitter = 10000
+limit = 10000
+chain_name = "kujira"
+link = "https://kujira.network"
+link_text = "Go to Kujira"
+[protocols.kujira.assets.dATOM]
+strategy = "dATOM"
+description = "Holding dATOM on Kujira"
+type = "single-sided"
+multiplier = 1
+status = true
+denom = "ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9"
+
+[protocols.osmosis]
+source = "osmosis"
+chain_id = "osmosis-1"
+chain_name = "osmosis"
+rpc = "https://rpc.osmosis.zone"
+jitter = 10000
+pagination_limit = 10000
+graphql_url = "http://localhost:3001"
+link = "https://osmosis.zone"
+link_text = "Go to Osmosis"
+[protocols.osmosis.assets.dATOM]
+strategy = "dATOM"
+description = "Holding dATOM on Osmosis"
+type = "single-sided"
+multiplier = 1
+status = true
+denom = "ibc/0FC38457AF15A8BD1962BB97DDF1AB5EF4C74C5BFDAEF00289A9C405CBD609B0"
+
+[protocols.secret]
+source = "secret"
+chain_id = "secret-4"
+chain_name = "secret"
+rpc = "https://scrt.public-rpc.com"
+jitter = 10000
+pagination_limit = 10000
+graphql_url = "http://localhost:3001"
+link = "https://scrt.network"
+link_text = "Go to Secret"
+[protocols.secret.assets.dATOM]
+strategy = "dATOM"
+description = "Holding dATOM on Secret"
+type = "single-sided"
+multiplier = 1
+status=true
+denom = "ibc/4F8BBC6C7C8E18B4BA9F4FF27918CD54B42F95D1B69EBFA73FB075C46BD2D0E9"
 
 [protocols.neutron-astroport]
 rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
@@ -47,7 +131,14 @@ source = "astroport"
 jitter = 10000
 concurrency_limit = 6
 pagination_limit = 30
+chain_name = "neutron"
+link = "https://astroport.fi"
+link_text = "Go to Astroport"
 [protocols.neutron-astroport.assets.dATOM]
+strategy = "dATOM/ATOM"
+description = "LP on Astroport"
+type = "volatile"
+status = true
 multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 pair_contract = "neutron15d0se9nw9stqx9ms9ey85gfpraqwl80t5urmjfk2jwtqxpxk3x3qctjt4n"
@@ -58,7 +149,14 @@ source = "generator"
 jitter = 10000
 pagination_limit = 50
 generator_contract = "neutron173fd8wpfzyqnfnpwq2zhtgdstujrjz2wkprkjfr6gqg4gknctjyq6m3tch"
+chain_name = "neutron"
+link = "https://astroport.fi"
+link_text = "Go to Astroport"
 [protocols.neutron-astroport-generator.assets.dATOM]
+strategy = "dATOM/ATOM"
+description = "LP on Astroport Generator"
+type = "volatile"
+status = true
 multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
 pair_contract = "neutron15d0se9nw9stqx9ms9ey85gfpraqwl80t5urmjfk2jwtqxpxk3x3qctjt4n"
@@ -68,7 +166,14 @@ rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 source = "apollo"
 jitter = 10000
 pagination_limit = 10000
+chain_name = "neutron"
+link = "https://apollo.farm"
+link_text = "Go to Apollo"
 [protocols.neutron-apollo.assets.dATOM]
+strategy = "dATOM/ATOM"
+description = "LP Vault on Apollo"
+type = "autocompound"
+status = true
 multiplier = 1
 denom = "ibc/B559A80D62249C8AA07A380E2A2BEA6E5CA9A6F079C912C3A9E9B494105E4F81"
 vault_contract = "neutron14xx9hcw0cyw2vtxh586h5usymfyk06jnj677awhntrkxtm72amrsmj5fxt"
@@ -78,34 +183,3 @@ vault_contract = "neutron14xx9hcw0cyw2vtxh586h5usymfyk06jnj677awhntrkxtm72amrsmj
 # source = "mars"
 # [protocols.neutron-levana.assets.dATOM]
 # neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
-
-[protocols.kujira]
-source = "kujira"
-rpc = "https://kujira-rpc.publicnode.com:443/"
-jitter = 10000
-limit = 10000
-[protocols.kujira.assets.dATOM]
-multiplier = 1
-denom = "ibc/FE98AAD68F02F03565E9FA39A5E627946699B2B07115889ED812D8BA639576A9"
-
-[protocols.secret]
-source = "secret"
-chain_id = "secret-4"
-rpc = "https://scrt.public-rpc.com"
-jitter = 10000
-pagination_limit = 10000
-graphql_url = "http://localhost:3001"
-[protocols.secret.assets.dATOM]
-multiplier = 1
-denom = "ibc/4F8BBC6C7C8E18B4BA9F4FF27918CD54B42F95D1B69EBFA73FB075C46BD2D0E9"
-
-[protocols.osmosis]
-source = "osmosis"
-chain_id = "osmosis-1"
-rpc = "https://rpc.osmosis.zone"
-jitter = 10000
-pagination_limit = 10000
-graphql_url = "http://localhost:3001"
-[protocols.osmosis.assets.dATOM]
-multiplier = 1
-denom = "ibc/0FC38457AF15A8BD1962BB97DDF1AB5EF4C74C5BFDAEF00289A9C405CBD609B0"
