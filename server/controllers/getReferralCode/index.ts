@@ -24,36 +24,21 @@ const getReferralCode =
       address,
     );
 
-    let blacklistResult = null;
-    try {
-      blacklistResult = db
-        .query<
-          { address: number },
-          [string]
-        >('SELECT address FROM blacklist WHERE address = ?')
-        .get(address);
-    } catch (e) {
-      logger.error(
-        'Unexpected error occurred while checking if address in the blacklist: %s',
-        (e as Error).message,
-      );
-      throw UNEXPECTED_TRPC_ERROR;
-    }
-
-    if (blacklistResult) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'This address is blacklisted',
-      });
-    }
-
     let row = null;
     try {
       row = db
         .query<
-          { referral_code: string },
+          { referralCode: string; blacklisted: boolean; kycPassed: boolean },
           [string]
-        >('SELECT referral_code FROM user_kyc WHERE address = ? LIMIT 1')
+        >(
+          `SELECT uk.referral_code as referralCode, 
+                           IIF(IFNULL(b.address, "ok") == "ok", 0, 1) blacklisted, 
+                           IIF(IFNULL(uk.address, "ok") == "ok", 0, 1) kycPassed 
+                           FROM (select ? address) f 
+                           LEFT JOIN blacklist b ON (b.address = f.address) 
+                           LEFT JOIN user_kyc uk ON (uk.address = f.address)
+                           LIMIT 1`,
+        )
         .get(address);
     } catch (e) {
       logger.error(
@@ -65,10 +50,42 @@ const getReferralCode =
     }
 
     if (!row) {
-      logger.error('Referral code for %s not found in user KYC table', address);
+      logger.error(
+        'Referral code cannot be fetched for %s from user KYC table',
+        address,
+      );
+      throw new TRPCError({
+        code: 'UNPROCESSABLE_CONTENT',
+        message: 'Failed to fetch data',
+      });
+    }
+
+    const { referralCode, blacklisted, kycPassed } = row;
+
+    if (blacklisted) {
+      logger.error('The address %s is blacklisted', address);
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'This address is blacklisted',
+      });
+    }
+
+    if (!kycPassed) {
+      logger.error('KYC is not passed for %s', address);
       throw new TRPCError({
         code: 'NOT_FOUND',
-        message: 'KYC is not completed',
+        message: 'KYC is not passed',
+      });
+    }
+
+    if (!referralCode) {
+      logger.error(
+        'KYC passed for %s but referral code not found in user KYC table',
+        address,
+      );
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'Referral code not found',
       });
     }
 
@@ -77,7 +94,7 @@ const getReferralCode =
       address,
     );
 
-    return { referralCode: row.referral_code };
+    return { referralCode };
   };
 
 export { getReferralCode };
