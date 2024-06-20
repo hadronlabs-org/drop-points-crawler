@@ -17,7 +17,7 @@ export const getRegistry = (
         new client.Gauge({
           name: field,
           help: `${field} value for an address`,
-          labelNames: ['address'],
+          labelNames: ['address', 'label'],
           collect() {
             const data = db
               .query<
@@ -27,11 +27,14 @@ export const getRegistry = (
                 },
                 null
               >(
-                `SELECT ${field} points, address FROM user_points_public WHERE address IN ('${config.watched_addresses.join("','")}')`,
+                `SELECT ${field} points, address FROM user_points_public WHERE address IN ('${config.watched_addresses.map((v: any) => v.address).join("','")}')`,
               )
               .all(null);
             data.forEach((row) => {
-              this.set({ address: row.address }, parseFloat(row.points));
+              const label = config.watched_addresses.find(
+                (v: any) => v.address === row.address,
+              )?.label;
+              this.set({ address: row.address, label }, parseFloat(row.points));
             });
           },
         }),

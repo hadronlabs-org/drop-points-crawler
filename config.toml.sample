@@ -5,10 +5,12 @@ default_interval = 43200                          #seconds
 
 sources = ["levana", "mars", "kujira", "neutron"]
 
-watched_addresses = [
-    "neutron10022mzmrheg2fl3s88fc2eg9vstt8s4sjslrks",
-    "neutron1002fmu6uekkfrdldux7uz3u20nclrv7d7kq9wv",
-]
+[[watched_addresses]]
+label = "some 1"
+address = "neutron10022mzmrheg2fl3s88fc2eg9vstt8s4sjslrks"
+[[watched_addresses]]
+label = "some 2"
+address = "neutron1002fmu6uekkfrdldux7uz3u20nclrv7d7kq9wv"
 
 default_interval = 60
 
