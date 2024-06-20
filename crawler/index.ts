@@ -322,6 +322,8 @@ program
         prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
       WHERE 
         ud.batch_id = ?
+      AND
+        address NOT IN (select address from blacklist)
       GROUP BY 
         ud.batch_id, ud.address, ud.asset
       `,
@@ -343,9 +345,9 @@ program
         // TODO: add kyc check
         db.prepare<null, string>(
           `
-          INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place)
+          INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT 
-            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0
+            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
@@ -390,6 +392,15 @@ program
                 k2.address IS NOT NULL
             ),0)
           `,
+        );
+        db.exec(
+          `WITH ranked as (
+          select address, ROW_NUMBER() OVER (order by points + points_l1 + points_l2 DESC) place FROM user_points_public
+        )
+        UPDATE user_points_public
+        SET
+          prev_place = place,
+          place = (SELECT place FROM ranked WHERE address = user_points_public.address)`,
         );
         stmt.run({ $ts: firstTs });
         db.prepare<null, string>(
@@ -563,6 +574,28 @@ referralCli
   .description('retrieve last Referral data')
   .action(async () => {
     await updateReferralData(db, config, logger);
+  });
+
+const blacklistCli = program
+  .command('blacklist')
+  .description('Edit address blacklist');
+
+blacklistCli
+  .command('add')
+  .argument('<address>', 'Address')
+  .description('Insert address into blacklist')
+  .action((address) => {
+    db.prepare('INSERT INTO blacklist (address) VALUES (?)').run(address);
+    logger.info('Inserted %s into blacklist', address);
+  });
+
+blacklistCli
+  .command('remove')
+  .argument('<address>', 'Address')
+  .description('Remove address from blacklist')
+  .action((address) => {
+    db.prepare('DELETE FROM blacklist WHERE address = ?').run(address);
+    logger.info('Removed %s from blacklist', address);
   });
 
 program.parse(process.argv);

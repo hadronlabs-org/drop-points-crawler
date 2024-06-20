@@ -1,7 +1,7 @@
 db_path = "data.db"
 log_level = "debug"
 assets = ["dATOM", 'dTIA']
-default_interval = 43200                          #seconds
+default_interval = 43200 #seconds
 
 sources = ["levana", "mars", "kujira", "neutron"]
 
@@ -12,10 +12,12 @@ address = "neutron10022mzmrheg2fl3s88fc2eg9vstt8s4sjslrks"
 label = "some 2"
 address = "neutron1002fmu6uekkfrdldux7uz3u20nclrv7d7kq9wv"
 
-default_interval = 60
-
 l1_percent = 25
 l2_percent = 12
+
+blacklist = [
+    "neutron173fd8wpfzyqnfnpwq2zhtgdstujrjz2wkprkjfr6gqg4gknctjyq6m3tch" # Astroport Generator
+]
 
 [referral]
 graphql_url = "http://127.0.0.1:3001"

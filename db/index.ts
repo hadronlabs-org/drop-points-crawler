@@ -57,6 +57,7 @@ export const connect = (
           points_l1 NUMERIC NOT NULL, 
           points_l2 NUMERIC NOT NULL, 
           place INTEGER NOT NULL, 
+          prev_place INTEGER NOT NULL,
           PRIMARY KEY(address, asset_id)
         );`,
     );
@@ -66,6 +67,7 @@ export const connect = (
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT);',
     );
+    db.exec('CREATE TABLE IF NOT EXISTS blacklist (address TEXT UNIQUE);');
     db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
     );
@@ -83,7 +85,7 @@ export const connect = (
       'CREATE UNIQUE INDEX IF NOT EXISTS kyc_provider_id ON user_kyc (kyc_id, kyc_provider);',
     );
 
-    const row = db
+    let row = db
       .query<{ count: number }, null>('SELECT COUNT(*) as count FROM schedule')
       .get(null);
     if (row?.count === 0) {
@@ -133,6 +135,15 @@ export const connect = (
             ],
           );
         }
+      }
+    }
+
+    row = db
+      .query<{ count: number }, null>('SELECT COUNT(*) as count FROM blacklist')
+      .get(null);
+    if (row?.count === 0) {
+      for (const address of config.blacklist) {
+        db.exec('INSERT INTO blacklist(address) VALUES (?);', [address]);
       }
     }
   }
