@@ -9,6 +9,7 @@ const dropletRuleSchema = z.object({
   link: z.string(),
   link_text: z.string(),
   type: z.string(),
+  featured: z.boolean(),
 });
 
 export { dropletRuleSchema };
