@@ -19,7 +19,7 @@ graphql_url = "http://127.0.0.1:3001"
 source = "neutron"
 rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 jitter = 10000
-limit = 10000
+pagination_limit = 10000
 [protocols.neutron.assets.dATOM]
 multiplier = 1
 denom = "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9"
