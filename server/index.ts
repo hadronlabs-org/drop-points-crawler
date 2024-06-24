@@ -1,4 +1,5 @@
-import { createHTTPServer } from '@trpc/server/adapters/standalone';
+import * as trpcExpress from '@trpc/server/adapters/express';
+import express from 'express';
 import toml from 'toml';
 import fs from 'fs';
 
@@ -33,7 +34,10 @@ import {
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
 import { connect } from '../db';
 import { Command } from 'commander';
-import { getReferrals } from "./controllers/getReferrals";
+import { getReferrals } from './controllers/getReferrals';
+import { getRegistry } from './prometeus';
+
+const expressApp = express();
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -73,11 +77,23 @@ const appRouter = router({
     .query(getRules(db, logger)),
 });
 
-const server = createHTTPServer({
-  router: appRouter,
-});
 const port = process.env.PORT || 3000;
 
-server.listen(port, () => {
+const register = getRegistry(config, db);
+
+expressApp.get('/metrics', async (req, res, next) => {
+  res.setHeader('Content-type', register.contentType);
+  res.send(await register.metrics());
+  next();
+});
+
+expressApp.use(
+  '/',
+  trpcExpress.createExpressMiddleware({
+    router: appRouter,
+  }),
+);
+
+expressApp.listen(port, () => {
   logger.debug(`Server is running on http://localhost:${port}`);
 });
