@@ -30,14 +30,21 @@ const postKyc =
 
     logger.debug('Receiving request to post KYC for address %s', address);
 
-    let idResult = null;
+    let row = null;
     try {
-      idResult = db
+      row = db
         .query<
-          { kyc_id: number },
-          [string, string]
-        >('SELECT kyc_id FROM user_kyc WHERE kyc_id = ? AND kyc_provider = ?')
-        .get(kycId, kycProvider);
+          { blacklisted: number; kycIdExisted: number },
+          [string, string, string]
+        >(
+          `SELECT IIF(IFNULL(b.address, "ok") == "ok", 0, 1) blacklisted, 
+                           IIF(IFNULL(uk.kyc_id, "ok") == "ok", 0, 1) kycIdExisted 
+                           FROM (select ? address, ? kyc_id, ? kyc_provider) f 
+                           LEFT JOIN blacklist b ON (b.address = f.address) 
+                           LEFT JOIN user_kyc uk ON (uk.kyc_id = f.kyc_id AND uk.kyc_provider = f.kyc_provider)
+                           LIMIT 1`,
+        )
+        .get(address, kycId, kycProvider);
     } catch (e) {
       logger.error(
         'Unexpected error occurred while checking unique KYC ID: %s',
@@ -46,7 +53,33 @@ const postKyc =
       throw UNEXPECTED_TRPC_ERROR;
     }
 
-    if (idResult) {
+    if (!row) {
+      logger.error(
+        'Data cannot be fetched for %s from user KYC table and blacklist table',
+        address,
+      );
+      throw new TRPCError({
+        code: 'UNPROCESSABLE_CONTENT',
+        message: 'Failed to fetch data',
+      });
+    }
+
+    const { blacklisted, kycIdExisted } = row;
+
+    if (blacklisted) {
+      logger.error('The address %s is blacklisted', address);
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'The address is blacklisted',
+      });
+    }
+
+    if (kycIdExisted) {
+      logger.error(
+        'The KYC ID %s already exists for the KYC provider %s',
+        kycId,
+        kycProvider,
+      );
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'This KYC ID already exists for the given KYC provider',

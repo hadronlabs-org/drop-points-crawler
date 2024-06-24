@@ -65,7 +65,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id INTEGER, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT);',
+      'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT, featured BOOLEAN);',
     );
     db.exec('CREATE TABLE IF NOT EXISTS blacklist (address TEXT UNIQUE);');
     db.exec(
@@ -113,6 +113,7 @@ export const connect = (
                 link: protocolObject.link,
                 link_text: protocolObject.link_text,
                 type: assetObject.type,
+                featured: assetObject.featured,
               },
               dropletRuleSchema,
               logger,
@@ -122,7 +123,7 @@ export const connect = (
           }
 
           db.exec(
-            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
               dropletRule.strategy,
               dropletRule.description,
@@ -132,6 +133,7 @@ export const connect = (
               dropletRule.link,
               dropletRule.link_text,
               dropletRule.type,
+              dropletRule.featured,
             ],
           );
         }

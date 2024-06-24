@@ -15,6 +15,7 @@ const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
     link: string;
     linkText: string;
     type: string;
+    featured: boolean;
   };
   let rows: dbResponse[] | null;
   try {
@@ -22,7 +23,7 @@ const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
       .query<
         dbResponse,
         []
-      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type FROM user_points_rules')
+      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type, featured FROM user_points_rules')
       .all();
   } catch (e) {
     logger.error('Unexpected error occurred while fetching Droplet rules');
@@ -37,14 +38,18 @@ const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
     logger.error('Droplet rules are not found');
     throw new TRPCError({
       code: 'NOT_FOUND',
-      message: 'Referrer not found',
+      message: 'Droplet rules not found',
     });
   }
 
   logger.debug('Request to get Droplet rules is finished');
 
   return {
-    rules: rows.map((row) => ({ ...row, status: Boolean(row.status) })),
+    rules: rows.map((row) => ({
+      ...row,
+      status: Boolean(row.status),
+      featured: Boolean(row.featured),
+    })),
   };
 };
 

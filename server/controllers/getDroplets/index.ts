@@ -73,7 +73,7 @@ const getDroplets =
         address,
       );
       throw new TRPCError({
-        code: 'NOT_FOUND',
+        code: 'UNPROCESSABLE_CONTENT',
         message: 'Total is not accessible',
       });
     }
