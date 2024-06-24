@@ -65,7 +65,19 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id INTEGER, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_points_rules (strategy TEXT, description TEXT, multiplier REAL, chain TEXT, status BOOLEAN, link TEXT, link_text TEXT, type TEXT, featured BOOLEAN);',
+      `CREATE TABLE IF NOT EXISTS user_points_rules 
+              (
+                  strategy TEXT, 
+                  description TEXT, 
+                  multiplier REAL, 
+                  chain TEXT, 
+                  status BOOLEAN, 
+                  link TEXT, 
+                  link_text TEXT, 
+                  type TEXT, 
+                  featured BOOLEAN,
+                  visible BOOLEAN
+              );`,
     );
     db.exec('CREATE TABLE IF NOT EXISTS blacklist (address TEXT UNIQUE);');
     db.exec(
@@ -105,15 +117,16 @@ export const connect = (
           try {
             dropletRule = getValidData(
               {
-                strategy: assetObject.strategy,
-                description: assetObject.description,
+                strategy: assetObject.frontend_data.strategy,
+                description: assetObject.frontend_data.description,
                 multiplier: assetObject.multiplier,
-                chain: protocolObject.chain_name,
-                status: assetObject.status,
-                link: protocolObject.link,
-                link_text: protocolObject.link_text,
-                type: assetObject.type,
-                featured: assetObject.featured,
+                chain: protocolObject.frontend_data.chain_name,
+                status: assetObject.frontend_data.status,
+                link: protocolObject.frontend_data.link,
+                link_text: protocolObject.frontend_data.link_text,
+                type: assetObject.frontend_data.type,
+                featured: assetObject.frontend_data.featured,
+                visible: assetObject.frontend_data.visible,
               },
               dropletRuleSchema,
               logger,
@@ -123,7 +136,7 @@ export const connect = (
           }
 
           db.exec(
-            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
               dropletRule.strategy,
               dropletRule.description,
@@ -134,6 +147,7 @@ export const connect = (
               dropletRule.link_text,
               dropletRule.type,
               dropletRule.featured,
+              dropletRule.visible,
             ],
           );
         }

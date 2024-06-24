@@ -16,6 +16,7 @@ const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
     linkText: string;
     type: string;
     featured: boolean;
+    visible: boolean;
   };
   let rows: dbResponse[] | null;
   try {
@@ -23,7 +24,7 @@ const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
       .query<
         dbResponse,
         []
-      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type, featured FROM user_points_rules')
+      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type, featured FROM user_points_rules WHERE visible=true')
       .all();
   } catch (e) {
     logger.error('Unexpected error occurred while fetching Droplet rules');
