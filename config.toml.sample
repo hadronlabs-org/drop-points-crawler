@@ -226,6 +226,20 @@ type = "autocompound"
 featured = true
 status = true
 
+
+[protocols.osmosis-lp]
+source = "osmosis-lp"
+rpc = "https://osmosis-rpc.polkachu.com:443/"
+graphql_url = "http://127.0.0.1:3001"
+jitter = 10000
+pagination_limit = 10
+concurrency_limit = 10
+[protocols.osmosis-lp.assets.dATOM]
+multiplier = 1
+pool_id = "1464"
+denom = "uosmo"
+
+
 # [protocols.neutron-levana]
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
 # source = "mars"
