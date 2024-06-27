@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 
 import {
+  referral,
   tRPCGetReferralsRequest,
   tRPCGetReferralsResponse,
 } from '../../../types/tRPC/tRPCGetReferrals';
@@ -17,20 +18,22 @@ const getReferrals =
     logger.debug('Receiving request to get referrals for address %s', address);
 
     type dbResponse = {
-      referral: string;
+      l1Referral: string;
+      l2Referral: string;
     };
 
     let rows: dbResponse[] | null;
     try {
       rows = db
-        .query<
-          dbResponse,
-          [string]
-        >('SELECT referral FROM referrals WHERE referrer = ?')
+        .query<dbResponse, [string]>(
+          `SELECT r1.referral as l1Referral, r2.referral as l2Referral 
+                    FROM referrals r1 LEFT JOIN referrals r2 ON (r2.referrer = r1.referral) 
+                    WHERE r1.referrer = ?`,
+        )
         .all(address);
     } catch (e) {
       logger.error(
-        'Unexpected error occurred while fetching level one referrals: %s',
+        'Unexpected error occurred while fetching referrals: %s',
         (e as Error).message,
       );
 
@@ -42,45 +45,14 @@ const getReferrals =
 
     if (!rows) {
       logger.error(
-        'Level one referrals for %s cannot be fetched in the referrals table',
+        'Referrals for %s cannot be fetched from the referrals table',
         address,
       );
       throw new TRPCError({
         code: 'UNPROCESSABLE_CONTENT',
-        message: 'Level one referrals cannot be fetched',
+        message: 'Referrals cannot be fetched',
       });
     }
-
-    const levelOneReferrals = rows.map(({ referral }) => referral);
-
-    const placeholders = new Array(levelOneReferrals.length)
-      .fill('?')
-      .join(',');
-    try {
-      rows = db
-        .query<
-          dbResponse,
-          string[]
-        >(`SELECT referral FROM referrals WHERE referrer IN (${placeholders})`)
-        .all(...levelOneReferrals);
-    } catch (e) {
-      logger.error(
-        'Unexpected error occurred while fetching level two referrals: %s',
-        (e as Error).message,
-      );
-
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Unexpected error occurred',
-      });
-    }
-
-    const levelTwoReferrals = rows.map(({ referral }) => referral);
-
-    logger.debug(
-      'Request to get referrals for address %s is finished',
-      address,
-    );
 
     const { l1_percent: levelOnePercent, l2_percent: levelTwoPercent } = config;
     if (!levelOnePercent || !levelTwoPercent) {
@@ -95,21 +67,39 @@ const getReferrals =
       });
     }
 
-    return {
-      referrals: levelOneReferrals
-        .map((levelOneReferral) => ({
-          address: levelOneReferral,
+    logger.debug(
+      'Request to get referrals for address %s is finished',
+      address,
+    );
+
+    const referrals: referral[] = [];
+    rows.forEach((row) => {
+      const { l1Referral, l2Referral } = row;
+
+      const referralExists = referrals.find(
+        (referral) =>
+          referral.address === l1Referral || referral.address === l2Referral,
+      );
+      if (referralExists) return;
+
+      if (l1Referral) {
+        referrals.push({
+          address: l1Referral,
           level: 1,
           percent: levelOnePercent,
-        }))
-        .concat(
-          levelTwoReferrals.map((levelTwoReferral) => ({
-            address: levelTwoReferral,
-            level: 2,
-            percent: levelTwoPercent,
-          })),
-        ),
-    };
+        });
+      }
+
+      if (l2Referral) {
+        referrals.push({
+          address: l2Referral,
+          level: 2,
+          percent: levelTwoPercent,
+        });
+      }
+    });
+
+    return { referrals };
   };
 
 export { getReferrals };

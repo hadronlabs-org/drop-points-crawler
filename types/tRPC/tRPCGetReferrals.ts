@@ -21,17 +21,18 @@ type tRPCGetReferralsRequest = {
   };
 };
 
-type Referral = {
+type referral = {
   address: string;
   level: number;
   percent: number;
 };
 
 type tRPCGetReferralsResponse = {
-  referrals: Referral[];
+  referrals: referral[];
 };
 
 export {
+  referral,
   tRPCGetReferralsRequestSchema,
   tRPCGetReferralsResponseSchema,
   tRPCGetReferralsRequest,
