@@ -62,7 +62,7 @@ export const connect = (
         );`,
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id INTEGER, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
+      'CREATE TABLE IF NOT EXISTS schedule (schedule_id INTEGER PRIMARY KEY AUTOINCREMENT, protocol_id TEXT, asset_id TEXT, multiplier REAL, start INTEGER, end INTEGER, enabled BOOLEAN);',
     );
     db.exec(
       `CREATE TABLE IF NOT EXISTS user_points_rules 
