@@ -115,6 +115,11 @@ export default class SubqueryIndexerSource implements SourceInterface {
           offset += this.paginationLimit;
         }
 
+        if (!graphQlResponse) {
+          this.logger.error('No response from subquery indexer');
+          throw new Error('No response from subquery indexer');
+        }
+
         const {
           userBalances: { nodes },
         } = graphQlResponse;
