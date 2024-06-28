@@ -5,8 +5,14 @@ const tRPCGetReferralsRequestSchema = z.object({
   address: neutronAddress,
 });
 
+const referralSchema = z.object({
+  address: neutronAddress,
+  level: z.number(),
+  percent: z.number(),
+});
+
 const tRPCGetReferralsResponseSchema = z.object({
-  referrals: z.array(neutronAddress),
+  referrals: z.array(referralSchema),
 });
 
 type tRPCGetReferralsRequest = {
@@ -15,11 +21,18 @@ type tRPCGetReferralsRequest = {
   };
 };
 
+type referral = {
+  address: string;
+  level: number;
+  percent: number;
+};
+
 type tRPCGetReferralsResponse = {
-  referrals: string[];
+  referrals: referral[];
 };
 
 export {
+  referral,
   tRPCGetReferralsRequestSchema,
   tRPCGetReferralsResponseSchema,
   tRPCGetReferralsRequest,
