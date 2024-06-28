@@ -57,7 +57,6 @@ export default class OsmosisLPSource implements SourceInterface {
       },
       {},
     );
-    console.log(this.assetsByPoolId);
   }
 
   getLastBlockHeight = async (): Promise<number> => {
