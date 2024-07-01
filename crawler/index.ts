@@ -8,6 +8,7 @@ import fs from 'fs';
 import toml from 'toml';
 import { updateReferralData } from '../lib/referral';
 import { toNeutronAddress } from '../lib/neutron-address';
+import PriceFeed from '../lib/pricefeed';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -71,7 +72,7 @@ program
     );
 
     const query = db.query<
-      { protocol_id: number; asset_id: number; multiplier: number },
+      { protocol_id: string; asset_id: number; multiplier: number },
       [number, number]
     >(
       `
@@ -93,7 +94,6 @@ program
       ) b
       WHERE b.enabled = 1`,
     );
-
     const protocolsInDb = query.all(ts, ts);
     if (!protocolsInDb.length) {
       logger.info('No protocols found in the schedule');
@@ -107,14 +107,10 @@ program
       throw new Error('Failed to insert batch');
     }
     logger.info('Inserted batch %d', batchId);
-
-    // TODO: get prices
-    // insert prices
     const pricesTx = db.prepare(
       'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
     );
-    const processedAssets = new Set();
-
+    const assetsToGetPrice = new Set<string>();
     const tasksTx = db.prepare(
       'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
     );
@@ -123,14 +119,9 @@ program
     for (const protocol of protocolsInDb) {
       const protocolObj = config.protocols[protocol.protocol_id];
 
-      Object.keys(protocolObj.assets).forEach((assetId) => {
-        if (processedAssets.has(assetId)) return;
-
-        const price = 10; // TODO: get price!
-
-        pricesTx.run(assetId, batchId, price, ts);
-        processedAssets.add(assetId);
-      });
+      for (const assetId of Object.keys(protocolObj.assets)) {
+        assetsToGetPrice.add(assetId);
+      }
 
       const jitter = (protocolObj.jitter * timeShift) | 0;
       if (!jitter) {
@@ -159,9 +150,23 @@ program
         ts,
       );
     }
-
-    pricesTx.finalize();
     tasksTx.finalize();
+    const priceFeed = new PriceFeed(
+      config.pricefeed.rpc,
+      logger,
+      config.pricefeed,
+    );
+    const priceFeedHeight = await priceFeed.getLastHeight();
+    logger.debug('Got pricefeed height %d', priceFeedHeight);
+    for (const assetId of assetsToGetPrice) {
+      logger.debug('Getting price for asset %s', assetId);
+      const price = await priceFeed.getPrice(
+        assetId,
+        (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
+      );
+      pricesTx.run(assetId, batchId, price, ts);
+    }
+    pricesTx.finalize();
   });
 
 program
@@ -170,7 +175,7 @@ program
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
-    // // Get the batch ID and height of the task
+    // Get the batch ID and height of the task
     const { batchId, height } = (() => {
       if (options.batch_id) {
         const batchId = parseInt(options.batch_id, 10);

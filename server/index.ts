@@ -9,6 +9,7 @@ import { getDroplets } from './controllers/getDroplets';
 import { postKyc } from './controllers/postKyc';
 import { getReferralCode } from './controllers/getReferralCode';
 import { getReferrer } from './controllers/getReferrer';
+import { getReferrals } from './controllers/getReferrals';
 import { getRules } from './controllers/getRules';
 import { getLogger } from '../lib/logger';
 import {
@@ -34,7 +35,6 @@ import {
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
 import { connect } from '../db';
 import { Command } from 'commander';
-import { getReferrals } from './controllers/getReferrals';
 import { getRegistry } from './prometeus';
 
 const expressApp = express();
@@ -71,13 +71,13 @@ const appRouter = router({
   getReferrals: publicProcedure
     .input(tRPCGetReferralsRequestSchema)
     .output(tRPCGetReferralsResponseSchema)
-    .query(getReferrals(db, logger)),
+    .query(getReferrals(db, config, logger)),
   getRules: publicProcedure
     .output(tRPCGetRulesResponseSchema)
     .query(getRules(db, logger)),
 });
 
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
 const register = getRegistry(config, db);
 
