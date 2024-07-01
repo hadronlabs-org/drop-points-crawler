@@ -36,6 +36,16 @@ import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
 import { connect } from '../db';
 import { Command } from 'commander';
 import { getRegistry } from './prometeus';
+import {
+  tRPCPostKVDataRequestSchema,
+  tRPCPostKVDataResponseSchema,
+} from '../types/tRPC/tRPCPostKVData';
+import { postKVData } from './controllers/postKVData';
+import { getKVData } from './controllers/getKVData';
+import {
+  tRPCGetKVDataRequestSchema,
+  tRPCGetKVDataResponseSchema,
+} from '../types/tRPC/tRPCGetKVData';
 
 const expressApp = express();
 
@@ -60,6 +70,14 @@ const appRouter = router({
     .input(tRPCPostKycRequestSchema)
     .output(tRPCPostKycResponseSchema)
     .mutation(postKyc(db, logger)),
+  postKVData: publicProcedure
+    .input(tRPCPostKVDataRequestSchema)
+    .output(tRPCPostKVDataResponseSchema)
+    .mutation(postKVData(db, logger)),
+  getKVData: publicProcedure
+    .input(tRPCGetKVDataRequestSchema)
+    .output(tRPCGetKVDataResponseSchema)
+    .query(getKVData(db, logger)),
   getReferralCode: publicProcedure
     .input(tRPCGetReferralCodeRequestSchema)
     .output(tRPCGetReferralCodeResponseSchema)

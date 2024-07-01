@@ -81,6 +81,9 @@ export const connect = (
     );
     db.exec('CREATE TABLE IF NOT EXISTS blacklist (address TEXT UNIQUE);');
     db.exec(
+      'CREATE TABLE IF NOT EXISTS kvstore (key TEXT PRIMARY KEY, value TEXT);',
+    );
+    db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
     );
     db.exec('CREATE INDEX IF NOT EXISTS batches_status ON batches (status);');
