@@ -239,6 +239,17 @@ multiplier = 1
 pool_id = "1464"
 denom = "uosmo"
 
+[protocols.osmosis-lp.frontend_data]
+link = "https://app.osmosis.zone/pools"
+link_text = "Go to Osmosis LP"
+chain_name = "osmosis"
+[protocols.osmosis-lp.assets.dATOM.frontend_data]
+visible = true
+strategy = "dATOM/ATOM"
+description = "LP on Osmosis"
+type = "correlated"
+featured = false
+status = true
 
 # [protocols.neutron-levana]
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
