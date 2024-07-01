@@ -26,6 +26,7 @@
     "guid-typescript": "^1.0.9",
     "lodash": "^4.17.21",
     "nanoid": "^5.0.7",
+    "osmojs": "^16.14.0",
     "p-limit": "^5.0.0",
     "pino": "^9.1.0",
     "pino-pretty": "^11.1.0",

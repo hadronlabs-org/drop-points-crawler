@@ -4,6 +4,8 @@ import {
   QuerySmartContractStateRequest,
   QuerySmartContractStateResponse,
 } from 'cosmjs-types/cosmwasm/wasm/v1/query';
+import { FullPositionBreakdown } from 'osmojs/osmosis/concentratedliquidity/v1beta1/position';
+import * as osmoClQuery from 'osmojs/osmosis/concentratedliquidity/v1beta1/query';
 
 const queryContractOnHeight = async <T>(
   client: Tendermint34Client,
@@ -34,4 +36,28 @@ const queryContractOnHeight = async <T>(
   return out;
 };
 
-export { queryContractOnHeight };
+const queryOsmoPositionOnHeight = async (
+  client: Tendermint34Client,
+  positionId: string,
+  height: number,
+): Promise<FullPositionBreakdown> => {
+  const path = '/osmosis.concentratedliquidity.v1beta1.Query/PositionById';
+  const data = osmoClQuery.PositionByIdRequest.encode(
+    osmoClQuery.PositionByIdRequest.fromPartial({
+      positionId: BigInt(positionId),
+    }),
+  ).finish();
+
+  const response = await client.abciQuery({ path, data, height });
+
+  if (response.code !== 0) {
+    throw new Error(
+      `Tendermint query error: ${response.log} Code: ${response.code}`,
+    );
+  }
+
+  const out = osmoClQuery.PositionByIdResponse.decode(response.value).position;
+  return out;
+};
+
+export { queryContractOnHeight, queryOsmoPositionOnHeight };
