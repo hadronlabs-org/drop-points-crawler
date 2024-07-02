@@ -26,7 +26,7 @@ const getKVData =
         .get(key);
     } catch (e) {
       logger.error(
-        'Unexpected error occurred while fetching points: %s',
+        'Unexpected error occurred while querying kv : %s',
         (e as Error).message,
       );
       throw new TRPCError({
