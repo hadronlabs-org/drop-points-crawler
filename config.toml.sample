@@ -256,3 +256,16 @@ status = true
 # source = "mars"
 # [protocols.neutron-levana.assets.dATOM]
 # neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
+
+[pricefeed]
+jitter = 10000 # must equal to the jitter of neutron
+# rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"
+rpc = "https://rpc-palvus.pion-1.ntrn.tech:443"
+# contract = "neutron1m2emc93m9gpwgsrsf2vylv9xvgqh654630v7dfrhrkmr5slly53spg85wv" #mainnet
+contract = "neutron15ldst8t80982akgr8w8ekcytejzkmfpgdkeq4xgtge48qs7435jqp87u3t" #testnet
+[pricefeed.assets.dATOM]
+pyth_id = "b00b60f88b03a6a625a8d1c048c3f66653edf217439983d037e7222c4e612819"
+core_contract = "neutron1r8t7mc62gtlqqe9zfur0g73ppfgulqqhlzh82r9uggca5hq2336qmv2xj0"
+[pricefeed.assets.dTIA]
+pyth_id = "09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723"
+core_contract = "neutron1r8t7mc62gtlqqe9zfur0g73ppfgulqqhlzh82r9uggca5hq2336qmv2xj0"
