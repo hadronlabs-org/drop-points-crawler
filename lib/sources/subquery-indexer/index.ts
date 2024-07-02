@@ -116,20 +116,8 @@ export default class SubqueryIndexerSource implements SourceInterface {
         }
 
         if (!graphQlResponse) {
-          if (offset > 3 * this.paginationLimit) {
-            this.logger.error(
-              'Subquery indexer responds with undefined three times in a row',
-            );
-            throw new Error(
-              'Subquery indexer responds with undefined three times in a row',
-            );
-          }
-
-          this.logger.error(
-            'GraphQl response is undefined, skipped step on offset %d',
-            offset,
-          );
-          continue;
+          this.logger.error('No response from subquery indexer');
+          throw new Error('No response from subquery indexer');
         }
 
         const {

@@ -5,6 +5,7 @@ import SubqueryIndexerSource from './subquery-indexer';
 import AstroportSource from './astroport';
 import AstroportGeneratorSource from './astroport-generator';
 import ApolloSource from './apollo';
+import OsmosisLPSource from './osmosis-lp';
 
 const out = {
   neutron: BankModuleSource,
@@ -16,5 +17,6 @@ const out = {
   astroport: AstroportSource,
   generator: AstroportGeneratorSource,
   apollo: ApolloSource,
+  'osmosis-lp': OsmosisLPSource,
 };
 export default out;
