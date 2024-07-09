@@ -2,7 +2,8 @@
 
 ## Overview
 * Drop protocol will be launched with no token for the first several months. During this period, the points program will be active. The points program will be used to distribute some part of initial supply of the DROP token. To get the points, users will need to perform certain actions, such as providing liquidity, staking, etc. 
-* A user will get points for defined timeframe and only if user passed the KYC procedure
+* A user will get points for defined timeframe
+* Referral program points are only distributed if the referrer passed the KYC procedure
 
 ## Purpose
 This crawler is used to get the drop points data from various sources and store it in a database. The data is used to calculate the points for the users and then provided to be used in the smart contract to display the points on front-end and to distribute the DROP tokens.
