@@ -9,6 +9,8 @@ import toml from 'toml';
 import { updateReferralData } from '../lib/referral';
 import { toNeutronAddress } from '../lib/neutron-address';
 import PriceFeed from '../lib/pricefeed';
+import { insertKYCRecord } from '../lib/kyc';
+import { neutronAddress } from '../types/tRPC/neutronAddress';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -601,6 +603,49 @@ blacklistCli
   .action((address) => {
     db.prepare('DELETE FROM blacklist WHERE address = ?').run(address);
     logger.info('Removed %s from blacklist', address);
+  });
+
+const kycCli = program.command('kyc').description('KYC commands');
+
+kycCli
+  .command('add')
+  .argument('<address>', 'Address')
+  .option('-p --provider <provider>', 'KYC provider')
+  .option('-i --id <kyc_id>', 'KYC id')
+  .action((address, options) => {
+    address = neutronAddress.parse(address).toString();
+    const kycId = options.id || `local_${address}`;
+    const kycProvider = options.provider || 'local';
+    logger.info(
+      'Adding KYC for address %s, kyc id: %s, kyc provider: %s',
+      address,
+      kycId,
+      kycProvider,
+    );
+    const code = insertKYCRecord(db, logger, address, kycId, kycProvider);
+    logger.info('Referral code: %s', code);
+  });
+
+kycCli
+  .command('get')
+  .argument('<address>', 'Address')
+  .action((address) => {
+    address = neutronAddress.parse(address).toString();
+    const query = db.query<
+      { kyc_id: string; kyc_provider: string; ts: number },
+      string
+    >('SELECT kyc_id, kyc_provider, ts FROM user_kyc WHERE address = ?');
+    const row = query.get(address);
+    if (!row) {
+      logger.info('No KYC found for address %s', address);
+    } else {
+      logger.info(
+        'KYC id: %s, provider: %s, ts: %s',
+        row.kyc_id,
+        row.kyc_provider,
+        new Date(row.ts * 1000).toISOString(),
+      );
+    }
   });
 
 program.parse(process.argv);
