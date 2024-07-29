@@ -257,6 +257,13 @@ status = true
 # [protocols.neutron-levana.assets.dATOM]
 # neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
 
+[on_chain_storage]
+rpc = "https://rpc-falcron.pion-1.ntrn.tech:443"
+contract = "neutron1zrfx2nqmwds8m0fcpu4uxm2vlec7gd08arha88d6fzyme4fzypjqys6j2z"
+sender = "neutron1vf9arx6me4d3g0rhvxshj4apvlxyf3s6v56f0g"
+mnemonic = ""
+gas = "0.025untrn"
+
 [pricefeed]
 jitter = 10000 # must equal to the jitter of neutron
 # rpc = "https://rpc-kralum.neutron-1.neutron.org:443/"

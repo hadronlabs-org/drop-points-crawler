@@ -11,6 +11,9 @@ import { toNeutronAddress } from '../lib/neutron-address';
 import PriceFeed from '../lib/pricefeed';
 import { insertKYCRecord } from '../lib/kyc';
 import { neutronAddress } from '../types/tRPC/neutronAddress';
+import { executeSetBalances } from '../lib/execute';
+import { getSigningCosmWasmClient } from '../lib/stargate';
+import { validateOnChainContractInfo } from '../lib/validations/config';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -21,6 +24,8 @@ const config = toml.parse(
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
+
+validateOnChainContractInfo(config);
 
 const logger = getLogger(config);
 const db = connect(true, config, logger);
@@ -264,7 +269,7 @@ program
   .description('Calculate points for users and finish the task')
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
-  .action((options) => {
+  .action(async (options) => {
     const batchId = (() => {
       if (options.batch_id === undefined) {
         const row = db.query<{ batch_id: number }, null>(
@@ -320,18 +325,18 @@ program
       // Calculate points for each user based on all sources
       db.exec<[number]>(
         `
-      INSERT 
-        INTO user_points (batch_id, address, asset_id, points) 
+      INSERT
+        INTO user_points (batch_id, address, asset_id, points)
         SELECT ud.batch_id, ud.address, ud.asset asset_id, FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
-      FROM 
+      FROM
         user_data ud
-      LEFT JOIN 
+      LEFT JOIN
         prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
-      WHERE 
+      WHERE
         ud.batch_id = ?
       AND
         address NOT IN (select address from blacklist)
-      GROUP BY 
+      GROUP BY
         ud.batch_id, ud.address, ud.asset
       `,
         [batchId],
@@ -353,13 +358,13 @@ program
         db.prepare<null, string>(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
-          SELECT 
+          SELECT
             address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
             batch_id IN (?)
-          GROUP BY 
+          GROUP BY
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = user_points_public.points,
@@ -370,15 +375,15 @@ program
         // calc L1, L2 points
         const stmt = db.prepare<null, { $ts: number }>(
           `
-          UPDATE 
+          UPDATE
             user_points_public
-          SET 
+          SET
             prev_points_l1 = points_l1,
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
-              SELECT 
+              SELECT
                 FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
-              FROM 
+              FROM
                 referrals r
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
               LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
@@ -387,9 +392,9 @@ program
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
-              SELECT 
+              SELECT
                 FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
-              FROM 
+              FROM
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= $ts)
@@ -417,7 +422,32 @@ program
     });
     tx();
     logger.info('Task has been finished');
-    //publish points to CW20
+
+    // publish points to CW20
+    if (!options.publish) return;
+    const publicPointsQuery = db.query<
+      {
+        address: string;
+        points: number;
+      },
+      null
+    >('SELECT address, points FROM user_points_public');
+    const publicPoints = publicPointsQuery.all(null);
+
+    const { on_chain_storage: onChainStorage } = config;
+
+    const signingClient = await getSigningCosmWasmClient(
+      onChainStorage.rpc,
+      onChainStorage.gas,
+      onChainStorage.mnemonic,
+    );
+    await executeSetBalances(
+      signingClient,
+      onChainStorage.sender,
+      onChainStorage.contract,
+      publicPoints,
+    );
+    logger.info('Points have been saved to the on chain contract');
   });
 
 const scheduleCli = program
