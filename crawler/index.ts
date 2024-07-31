@@ -11,6 +11,9 @@ import { toNeutronAddress } from '../lib/neutron-address';
 import PriceFeed from '../lib/pricefeed';
 import { insertKYCRecord } from '../lib/kyc';
 import { neutronAddress } from '../types/tRPC/neutronAddress';
+import { executeSetBalances } from '../lib/execute';
+import { getSigningCosmWasmClient } from '../lib/stargate';
+import { validateOnChainContractInfo } from '../lib/validations/config';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -21,6 +24,8 @@ const config = toml.parse(
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
+
+validateOnChainContractInfo(config);
 
 const logger = getLogger(config);
 const db = connect(true, config, logger);
@@ -321,7 +326,7 @@ program
       db.exec<[number]>(
         `
       INSERT 
-        INTO user_points (batch_id, address, asset_id, points) 
+        INTO user_points (batch_id, address, asset_id, points)
         SELECT ud.batch_id, ud.address, ud.asset asset_id, FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
       FROM 
         user_data ud
@@ -417,7 +422,47 @@ program
     });
     tx();
     logger.info('Task has been finished');
-    //publish points to CW20
+  });
+
+program
+  .command('publish_on_chain')
+  .description('Publish points to CW20 contract')
+  .action(async () => {
+    const publicPointsQuery = db.query<
+      {
+        address: string;
+        points: number;
+      },
+      null
+    >('SELECT address, points FROM user_points_public');
+    const publicPoints = publicPointsQuery.all(null);
+
+    const {
+      on_chain_storage: {
+        sender,
+        contract,
+        rpc,
+        gas,
+        mnemonic,
+        batch_size: batchSize = null,
+        gas_adjustment: gasAdjustment = null,
+      },
+    } = config;
+
+    const signingClient = await getSigningCosmWasmClient(rpc, gas, mnemonic);
+
+    while (publicPoints.length) {
+      await executeSetBalances(
+        signingClient,
+        sender,
+        contract,
+        publicPoints.splice(0, batchSize || 1000),
+        gasAdjustment,
+        logger,
+      );
+    }
+
+    logger.info('Points have been saved to the on chain contract');
   });
 
 const scheduleCli = program

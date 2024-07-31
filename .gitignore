@@ -5,3 +5,8 @@ data.db-shm
 data.db-wal
 config.toml
 .idea
+/contracts/.DS_Store
+/contracts/target/
+/contracts/**/schema/
+/contracts/artifacts/
+/contracts/.rtx.toml
