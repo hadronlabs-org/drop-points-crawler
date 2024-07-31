@@ -1,0 +1,9 @@
+node_modules
+.vscode
+data.db
+data.db-shm
+data.db-wal
+config.toml
+.idea
+README.md
+/contracts/**

@@ -325,18 +325,18 @@ program
       // Calculate points for each user based on all sources
       db.exec<[number]>(
         `
-      INSERT
+      INSERT 
         INTO user_points (batch_id, address, asset_id, points)
         SELECT ud.batch_id, ud.address, ud.asset asset_id, FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
-      FROM
+      FROM 
         user_data ud
-      LEFT JOIN
+      LEFT JOIN 
         prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
-      WHERE
+      WHERE 
         ud.batch_id = ?
       AND
         address NOT IN (select address from blacklist)
-      GROUP BY
+      GROUP BY 
         ud.batch_id, ud.address, ud.asset
       `,
         [batchId],
@@ -358,13 +358,13 @@ program
         db.prepare<null, string>(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
-          SELECT
+          SELECT 
             address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
             batch_id IN (?)
-          GROUP BY
+          GROUP BY 
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = user_points_public.points,
@@ -375,15 +375,15 @@ program
         // calc L1, L2 points
         const stmt = db.prepare<null, { $ts: number }>(
           `
-          UPDATE
+          UPDATE 
             user_points_public
-          SET
+          SET 
             prev_points_l1 = points_l1,
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
-              SELECT
+              SELECT 
                 FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
-              FROM
+              FROM 
                 referrals r
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
               LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
@@ -392,9 +392,9 @@ program
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
-              SELECT
+              SELECT 
                 FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
-              FROM
+              FROM 
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= $ts)
@@ -422,9 +422,12 @@ program
     });
     tx();
     logger.info('Task has been finished');
+  });
 
-    // publish points to CW20
-    if (!options.publish) return;
+program
+  .command('publish_on_chain')
+  .description('Publish points to CW20 contract')
+  .action(async () => {
     const publicPointsQuery = db.query<
       {
         address: string;
@@ -441,12 +444,16 @@ program
       onChainStorage.gas,
       onChainStorage.mnemonic,
     );
-    await executeSetBalances(
-      signingClient,
-      onChainStorage.sender,
-      onChainStorage.contract,
-      publicPoints,
-    );
+
+    while (publicPoints.length) {
+      await executeSetBalances(
+        signingClient,
+        onChainStorage.sender,
+        onChainStorage.contract,
+        publicPoints.splice(0, 1000),
+      );
+    }
+
     logger.info('Points have been saved to the on chain contract');
   });
 
