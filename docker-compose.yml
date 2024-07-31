@@ -1,8 +1,8 @@
 services:
   drop_points_crawler:
     build: .
-    image: drop_points_crawler
-    container_name: drop_points_crawler
+    image: drop-points-crawler
+    container_name: drop-points-crawler
     volumes:
       - ./config.toml:/usr/src/app/config.toml
       - ./data.db:/usr/src/app/data.db
