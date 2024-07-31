@@ -437,21 +437,27 @@ program
     >('SELECT address, points FROM user_points_public');
     const publicPoints = publicPointsQuery.all(null);
 
-    const { on_chain_storage: onChainStorage } = config;
+    const {
+      on_chain_storage: {
+        sender,
+        contract,
+        rpc,
+        gas,
+        mnemonic,
+        batch_size: batchSize = null,
+        gas_adjustment: gasAdjustment = null,
+      },
+    } = config;
 
-    const signingClient = await getSigningCosmWasmClient(
-      onChainStorage.rpc,
-      onChainStorage.gas,
-      onChainStorage.mnemonic,
-    );
+    const signingClient = await getSigningCosmWasmClient(rpc, gas, mnemonic);
 
     while (publicPoints.length) {
       await executeSetBalances(
         signingClient,
-        onChainStorage.sender,
-        onChainStorage.contract,
-        publicPoints.splice(0, config.on_chain_storage.batch_size || 1000),
-        config.on_chain_storage.gas_adjustment,
+        sender,
+        contract,
+        publicPoints.splice(0, batchSize || 1000),
+        gasAdjustment,
         logger,
       );
     }
