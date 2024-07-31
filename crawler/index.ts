@@ -354,7 +354,6 @@ program
         const all = query.all('new');
         const batchIds = all.map((row) => row.batch_id);
         const firstTs = all[0].ts;
-        // TODO: add kyc check
         db.prepare<null, string>(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
@@ -362,16 +361,37 @@ program
             address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
+          LEFT JOIN user_kyc k ON (k.address = user_points.address)
           WHERE
             batch_id IN (?)
+            AND k.address IS NOT NULL
           GROUP BY 
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = user_points_public.points,
             points = user_points_public.points + excluded.points`,
         ).run(batchIds.join(','));
-        //TODO: select all referrers who are not in user_points_public and insert them into user_points_public for all assets
-
+        // select all referrers who are not in user_points_public and insert them into user_points_public for all assets
+        // bc we need to calculate L1, L2 points for users who have no points
+        db.exec(
+          `
+            INSERT OR IGNORE INTO user_points_public
+                (address, asset_id, points, "change", prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
+            SELECT 
+              r.referrer address,
+              s.asset_id,
+              0 points,
+              0 "change",
+              0 prev_points_l1,
+                0 prev_points_l2,
+                0 points_l1,
+                0 points_l2,
+                0 place,
+                0 prev_place
+            FROM referrals r
+            LEFT JOIN schedule s;
+            `,
+        );
         // calc L1, L2 points
         const stmt = db.prepare<null, { $ts: number }>(
           `
