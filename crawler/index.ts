@@ -269,7 +269,7 @@ program
   .description('Calculate points for users and finish the task')
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
-  .action(async (options) => {
+  .action((options) => {
     const batchId = (() => {
       if (options.batch_id === undefined) {
         const row = db.query<{ batch_id: number }, null>(
@@ -450,7 +450,9 @@ program
         signingClient,
         onChainStorage.sender,
         onChainStorage.contract,
-        publicPoints.splice(0, 1000),
+        publicPoints.splice(0, config.on_chain_storage.batch_size || 1000),
+        config.on_chain_storage.gas_adjustment,
+        logger,
       );
     }
 
