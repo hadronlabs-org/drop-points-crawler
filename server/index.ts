@@ -59,7 +59,7 @@ if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
 const logger = getLogger(config);
-const db = connect(false, config, logger);
+const db = connect(true, config, logger);
 
 const appRouter = router({
   getDroplets: publicProcedure
