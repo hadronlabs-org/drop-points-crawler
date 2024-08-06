@@ -361,10 +361,8 @@ program
             address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
           FROM
             user_points
-          LEFT JOIN user_kyc k ON (k.address = user_points.address)
           WHERE
             batch_id IN (?)
-            AND k.address IS NOT NULL
           GROUP BY 
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
