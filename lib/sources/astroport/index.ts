@@ -5,6 +5,13 @@ import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { queryContractOnHeight } from '../../query';
 import pLimit from 'p-limit';
 import { UserBalance } from '../../../types/sources/userBalance';
+import {
+  QueryDenomOwnersRequest,
+  QueryDenomOwnersResponse,
+  QuerySupplyOfRequest,
+  QuerySupplyOfResponse,
+} from 'cosmjs-types/cosmos/bank/v1beta1/query';
+import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 
 export default class AstroportSource implements SourceInterface {
   rpc: string;
@@ -66,7 +73,7 @@ export default class AstroportSource implements SourceInterface {
     };
   };
 
-  getLpContract = async (
+  getLpToken = async (
     height: number,
     pairContract: string,
   ): Promise<string> => {
@@ -83,24 +90,82 @@ export default class AstroportSource implements SourceInterface {
     return data.liquidity_token;
   };
 
+  getDenomBalances = async (
+    denom: string,
+    multiplier: number,
+    height: number,
+    nextKey: undefined | Uint8Array = undefined,
+  ): Promise<{
+    results: Record<string, string>;
+    nextKey: undefined | Uint8Array;
+  }> => {
+    this.logger.debug(
+      'Fetching balances for %o with multiplier %s',
+      denom,
+      multiplier,
+    );
+    const path = '/cosmos.bank.v1beta1.Query/DenomOwners';
+    const request = {
+      denom,
+      pagination: PageRequest.fromPartial({
+        limit: BigInt(this.paginationLimit),
+        key: nextKey,
+      }),
+    };
+    const client = await this.getClient();
+    const data = QueryDenomOwnersRequest.encode(request).finish();
+    const response = await client.abciQuery({ path, data, height });
+    this.logger.trace('Got response %o', response);
+    if (response.code !== 0) {
+      throw new Error(
+        `Tendermint query error: ${response.log} Code: ${response.code}`,
+      );
+    }
+    const balances = QueryDenomOwnersResponse.decode(response.value);
+    const out = balances.denomOwners.reduce(
+      (acc, one) => ({
+        ...acc,
+        [one.address]: (
+          (BigInt(one.balance.amount) *
+            BigInt(Math.round(multiplier * 10000))) /
+          BigInt(10000)
+        ).toString(),
+      }),
+      {},
+    );
+    this.logger.debug('Got %d balances', Object.keys(out).length);
+    return { results: out, nextKey: balances.pagination?.nextKey };
+  };
+
+  getTotalSupply = async (
+    token: string,
+    height: number,
+  ): Promise<number | undefined> => {
+    const path = '/cosmos.bank.v1beta1.Query/SupplyOf';
+    const request = {
+      denom: token,
+    };
+    const client = await this.getClient();
+    const data = QuerySupplyOfRequest.encode(request).finish();
+    const response = await client.abciQuery({ path, data, height });
+    this.logger.trace('Got response %o', response);
+    if (response.code !== 0) {
+      throw new Error(
+        `Tendermint query error: ${response.log} Code: ${response.code}`,
+      );
+    }
+    const supply = QuerySupplyOfResponse.decode(response.value);
+    this.logger.trace('Supply %o', supply);
+    return parseInt(supply.amount.amount, 10);
+  };
+
   getLpExchangeRate = async (
     height: number,
     denom: string,
     pairContract: string,
+    lpTotalSupply: number,
   ): Promise<number> => {
     const client = await this.getClient();
-    const lpContract = await this.getLpContract(height, pairContract);
-    const lpTotalSupply = await queryContractOnHeight<string>(
-      client,
-      lpContract,
-      height,
-      {
-        total_supply_at: {
-          block: height,
-        },
-      },
-    );
-
     const pool = await queryContractOnHeight<{
       assets: {
         info: {
@@ -129,60 +194,44 @@ export default class AstroportSource implements SourceInterface {
       assetId,
       { denom, pair_contract: pairContract },
     ] of Object.entries(this.assets)) {
-      const lpContract = await this.getLpContract(height, pairContract);
+      const lpToken = await this.getLpToken(height, pairContract);
+      this.logger.debug(
+        `LP token for ${assetId}: ${lpToken} at height ${height}`,
+      );
+      const lpSupply = await this.getTotalSupply(lpToken, height);
+      if (!lpSupply) {
+        this.logger.warn(`LP supply not found for ${assetId}`);
+        continue;
+      }
+      this.logger.debug(`LP supply ${lpSupply}`);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
         pairContract,
+        lpSupply,
       );
-      const multiplier = multipliers[assetId] * exchangeRate;
-
-      const client = await this.getClient();
-      let startAfter = undefined;
-      while (true) {
-        this.logger.debug(`Fetching accounts starting after ${startAfter}`);
-        const accountsData: { accounts: string[] } =
-          await queryContractOnHeight(client, lpContract, height, {
-            all_accounts: {
-              limit: this.paginationLimit,
-              start_after: startAfter,
-            },
-          });
-        const accounts = accountsData.accounts;
-        if (accounts.length == 0) {
+      this.logger.debug(`Exchange rate ${exchangeRate}`);
+      let nextKey: undefined | Uint8Array = undefined;
+      do {
+        const { results, nextKey: newNextKey } = await this.getDenomBalances(
+          lpToken,
+          multipliers[assetId] || 1,
+          height,
+          nextKey,
+        );
+        cb(
+          Object.entries(results).map(([address, balance]) => ({
+            address,
+            balance,
+            asset: assetId,
+          })),
+        );
+        this.logger.debug('Got next key %s', newNextKey);
+        if (!newNextKey) {
           break;
         }
-        startAfter = accounts[accounts.length - 1];
-
-        const withConcurrencyLimit = pLimit(this.concurrencyLimit);
-        let userBalances = (
-          await Promise.allSettled(
-            accounts.map((account) =>
-              withConcurrencyLimit(
-                async () =>
-                  await this.getUserBalance(
-                    account,
-                    lpContract,
-                    height,
-                    assetId,
-                    multiplier,
-                  ),
-              ),
-            ),
-          )
-        ).reduce((filteredResult: UserBalance[], settledResult) => {
-          if (settledResult.status === 'fulfilled' && settledResult.value) {
-            filteredResult.push(settledResult.value);
-          }
-          return filteredResult;
-        }, []);
-        userBalances = userBalances.filter((balance) => balance.balance != '0');
-        if (userBalances.length == 0) {
-          continue;
-        }
-
-        cb(userBalances);
-      }
+        nextKey = newNextKey;
+      } while (nextKey !== undefined && nextKey.length > 0);
     }
   };
 
