@@ -45,7 +45,7 @@ export default class AstroportGeneratorSource extends AstroportSource {
       assetId,
       { denom, pair_contract: pairContract },
     ] of Object.entries(this.assets)) {
-      const lpContract = await this.getLpContract(height, pairContract);
+      const lpContract = await this.getLpToken(height, pairContract);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
