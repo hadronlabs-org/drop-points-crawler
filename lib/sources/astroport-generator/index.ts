@@ -45,14 +45,24 @@ export default class AstroportGeneratorSource extends AstroportSource {
       assetId,
       { denom, pair_contract: pairContract },
     ] of Object.entries(this.assets)) {
-      const lpContract = await this.getLpToken(height, pairContract);
+      const lpToken = await this.getLpToken(height, pairContract);
+      this.logger.debug(
+        `LP token for ${assetId}: ${lpToken} at height ${height}`,
+      );
+      const lpSupply = await this.getTotalSupply(lpToken, height);
+      if (!lpSupply) {
+        this.logger.warn(`LP supply not found for ${assetId}`);
+        continue;
+      }
+      this.logger.debug(`LP supply ${lpSupply}`);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
         pairContract,
+        lpSupply,
       );
+      this.logger.debug(`Exchange rate ${exchangeRate}`);
       const multiplier = multipliers[assetId] * exchangeRate;
-
       const client = await this.getClient();
       let startAfter = undefined;
       while (true) {
@@ -63,7 +73,7 @@ export default class AstroportGeneratorSource extends AstroportSource {
           height,
           {
             pool_stakers: {
-              lp_token: lpContract,
+              lp_token: lpToken,
               start_after: startAfter,
               limit: this.paginationLimit,
             },
