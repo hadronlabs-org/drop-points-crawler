@@ -2,10 +2,10 @@ services:
   drop_points_crawler:
     build: .
     image: drop-points-crawler
-    container_name: drop-points-crawler
+    container_name: mainnet-drop-points-crawler
     volumes:
       - ./config.toml:/usr/src/app/config.toml
-      - ./data.db:/usr/src/app/data.db
+      - ./store:/usr/src/app/store
     ports:
       - 3000:3000
     entrypoint: [ "bun", "serve" ]
