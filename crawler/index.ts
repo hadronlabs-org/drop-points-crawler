@@ -348,13 +348,15 @@ program
       );
 
       if (options.publish) {
+        logger.debug('Publishing points to users_points_public');
         const query = db.query<{ batch_id: number; ts: number }, string>(
           `SELECT batch_id, ts FROM batches WHERE status = ? ORDER BY batch_id ASC`,
         );
         const all = query.all('new');
         const batchIds = all.map((row) => row.batch_id);
+        logger.debug('Batch IDs: %s', batchIds.join(','));
         const firstTs = all[0].ts;
-        db.prepare<null, string>(
+        db.exec(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT 
@@ -362,13 +364,13 @@ program
           FROM
             user_points
           WHERE
-            batch_id IN (?)
+            batch_id IN (${batchIds.join(',')})
           GROUP BY 
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = user_points_public.points,
             points = user_points_public.points + excluded.points`,
-        ).run(batchIds.join(','));
+        );
         // select all referrers who are not in user_points_public and insert them into user_points_public for all assets
         // bc we need to calculate L1, L2 points for users who have no points
         db.exec(
