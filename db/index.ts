@@ -122,7 +122,7 @@ export const connect = (
               {
                 strategy: assetObject.frontend_data.strategy,
                 description: assetObject.frontend_data.description,
-                multiplier: assetObject.multiplier,
+                multiplier: assetObject.frontend_data.multiplier,
                 chain: protocolObject.frontend_data.chain_name,
                 status: assetObject.frontend_data.status,
                 link: protocolObject.frontend_data.link,

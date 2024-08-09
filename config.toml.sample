@@ -36,6 +36,7 @@ link = "https://www.neutron.org"
 link_text = "Go to Neutron"
 chain_name = "neutron"
 [protocols.neutron.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM"
 description = "Holding dATOM on Neutron"
@@ -58,6 +59,7 @@ link = "https://www.levana.finance"
 link_text = "Go to Levana"
 chain_name = "neutron"
 [protocols.osmosis-levana.assets.dATOM.frontend_data]
+multiplier = 2
 visible = true
 strategy = "dATOM"
 description = "Holding dATOM on Levana"
@@ -82,6 +84,7 @@ chain_name = "osmosis"
 link = "https://app.marsprotocol.io"
 link_text = "Go to Mars"
 [protocols.osmosis-mars.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM"
 description = "Lending dATOM on Mars"
@@ -103,6 +106,7 @@ chain_name = "kujira"
 link = "https://kujira.network"
 link_text = "Go to Kujira"
 [protocols.kujira.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM"
 description = "Holding dATOM on Kujira"
@@ -127,6 +131,7 @@ link = "https://osmosis.zone"
 link_text = "Go to Osmosis"
 chain_name = "osmosis"
 [protocols.osmosis.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM"
 description = "Holding dATOM on Osmosis"
@@ -151,6 +156,7 @@ link = "https://scrt.network"
 link_text = "Go to Secret"
 chain_name = "secret"
 [protocols.secret.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM"
 description = "Holding dATOM on Secret"
@@ -174,6 +180,7 @@ chain_name = "neutron"
 link = "https://astroport.fi"
 link_text = "Go to Astroport"
 [protocols.neutron-astroport.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM/ATOM"
 description = "LP on Astroport"
@@ -197,6 +204,7 @@ chain_name = "neutron"
 link = "https://astroport.fi"
 link_text = "Go to Astroport"
 [protocols.neutron-astroport-generator.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM/ATOM"
 description = "LP on Astroport Generator"
@@ -219,6 +227,7 @@ chain_name = "neutron"
 link = "https://apollo.farm"
 link_text = "Go to Apollo"
 [protocols.neutron-apollo.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM/ATOM"
 description = "LP Vault on Apollo"
@@ -244,6 +253,7 @@ link = "https://app.osmosis.zone/pools"
 link_text = "Go to Osmosis LP"
 chain_name = "osmosis"
 [protocols.osmosis-lp.assets.dATOM.frontend_data]
+multiplier = 1
 visible = true
 strategy = "dATOM/ATOM"
 description = "LP on Osmosis"
