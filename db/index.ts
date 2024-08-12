@@ -34,7 +34,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS tasks (protocol_id TEXT, batch_id INTEGER, height INTEGER, status TEXT, jitter NUMERIC, ts INTEGER, PRIMARY KEY(batch_id DESC, protocol_id));',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_data (batch_id INTEGER, address TEXT, protocol_id TEXT, height INTEGER, asset TEXT, balance NUMERIC, PRIMARY KEY(batch_id DESC, address, protocol_id));',
+      'CREATE TABLE IF NOT EXISTS user_data (batch_id INTEGER, address TEXT, protocol_id TEXT, height INTEGER, asset TEXT, balance NUMERIC, PRIMARY KEY(batch_id DESC, address, protocol_id, asset));',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, referral_code TEXT NOT NULL UNIQUE, kyc_id TEXT NOT NULL, kyc_provider TEXT NOT NULL, ts INTEGER);',

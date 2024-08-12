@@ -58,7 +58,7 @@ const getAssetMulsByProtocolAndBatchId = (
             ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
           ORDER BY protocol_id, schedule_id DESC
         ) a 
-      GROUP BY a.protocol_id
+      GROUP BY a.protocol_id, a.asset_id
     ) b
     WHERE b.enabled = 1;
     `,
@@ -220,10 +220,11 @@ program
     })();
     const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
     logger.info(
-      'Processing task for protocol %s, height %d and batch_id %d',
+      'Processing task for protocol %s, height %d and batch_id %d multipliers %o',
       protocolId,
       height,
       batchId,
+      multipliers,
     );
     // Processing the source
     const sourceObj = new sources[

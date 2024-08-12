@@ -5,7 +5,7 @@
   },
   "scripts": {
     "crawl": "bun ./crawler",
-    "mrproper": "rimraf ./data.db*",
+    "mrproper": "rimraf ./store/data.db*",
     "lint": "bun eslint . --fix",
     "serve": "bun ./server"
   },
