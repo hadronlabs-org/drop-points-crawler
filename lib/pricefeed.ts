@@ -68,7 +68,7 @@ export default class PriceFeed {
       height,
       {
         price_feed: {
-          id: this.params.assets[assetId].pyth_id,
+          id: this.params.assets[assetId.split('_')[0]].pyth_id,
         },
       },
     );
@@ -78,7 +78,7 @@ export default class PriceFeed {
     this.logger.debug(`Got PYTH price for %s: %d`, assetId, pythPrice);
     const dropExchangeRateResult = await queryContractOnHeight<string>(
       client,
-      this.params.assets[assetId].core_contract,
+      this.params.assets[assetId.split('_')[0]].core_contract,
       height,
       {
         exchange_rate: {},
