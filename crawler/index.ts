@@ -14,6 +14,8 @@ import { neutronAddress } from '../types/tRPC/neutronAddress';
 import { executeSetBalances } from '../lib/execute';
 import { getSigningCosmWasmClient } from '../lib/stargate';
 import { validateOnChainContractInfo } from '../lib/validations/config';
+import { getValidData } from '../types/utils';
+import { dropletRuleSchema } from '../types/config/dropletRule';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -495,20 +497,33 @@ scheduleCli
   .description('add a schedule')
   .argument('<protocol_id>', 'Protocol id')
   .argument('<asset_id>', 'dATOM, dTIA, etc')
-  .argument('<start>', 'Datetime YYYY-MM-DD HH:MM:SS')
-  .argument('<end>', 'Datetime')
+  .argument('<start>', 'Datetime YYYY-MM-DDTHH:MM:SS.MSZ"')
+  .argument('<end>', 'Datetime YYYY-MM-DDTHH:MM:SS.MSZ')
   .argument('<multiplier>', 'Decimal number')
   .argument('<enabled>', 'true or false')
   .option('-f --force')
   .action((protocolId, assetId, start, end, multiplier, enabled, options) => {
-    if (config.protocols[protocolId] === undefined) {
+    const protocolObject = config.protocols[protocolId];
+    const assetObject = config.protocols[protocolId].assets[assetId];
+
+    if (protocolObject === undefined) {
       logger.error('Protocol %s not found', protocolId);
       throw new Error(`Protocol ${protocolId} not found`);
     }
-    if (config.protocols[protocolId].assets[assetId] === undefined) {
+    if (assetObject === undefined) {
       logger.error('Asset %s not found', assetId);
       throw new Error(`Asset ${assetId} not found`);
     }
+
+    if (protocolObject.frontend_data === undefined) {
+      logger.error('Protocol frontend data %s not found', protocolId);
+      throw new Error(`Protocol ${protocolId} frontend data not found`);
+    }
+    if (assetObject.frontend_data === undefined) {
+      logger.error('Asset frontend data %s not found', assetId);
+      throw new Error(`Asset ${assetId} frontend data not found`);
+    }
+
     const m = parseFloat(multiplier);
     if (isNaN(m)) {
       logger.error('Invalid multiplier %s', multiplier);
@@ -528,7 +543,9 @@ scheduleCli
       logger.error('End date must be greater than start date');
       return;
     }
+
     const enabledBool = enabled === 'true';
+
     if (!options.force) {
       const query = db.query<
         { count: number },
@@ -543,18 +560,62 @@ scheduleCli
         return;
       }
     }
-    const statement = db.prepare(
-      'INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled) VALUES (?, ?, ?, ?, ?, ?)',
-    );
-    statement.run(
-      protocolId,
-      assetId,
-      multiplier,
-      dateStart,
-      dateEnd,
-      enabledBool,
-    );
-    logger.info('Schedule has been inserted');
+
+    const tx = db.transaction(() => {
+      const scheduleStatement = db.prepare(
+        'INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled) VALUES (?, ?, ?, ?, ?, ?)',
+      );
+      scheduleStatement.run(
+        protocolId,
+        assetId,
+        multiplier,
+        dateStart,
+        dateEnd,
+        enabledBool,
+      );
+      logger.info('Schedule has been inserted');
+
+      let dropletRule;
+      try {
+        dropletRule = getValidData(
+          {
+            strategy: assetObject.frontend_data.strategy,
+            description: assetObject.frontend_data.description,
+            multiplier: assetObject.frontend_data.multiplier,
+            chain: protocolObject.frontend_data.chain_name,
+            status: assetObject.frontend_data.status,
+            link: protocolObject.frontend_data.link,
+            link_text: protocolObject.frontend_data.link_text,
+            type: assetObject.frontend_data.type,
+            featured: assetObject.frontend_data.featured,
+            visible: assetObject.frontend_data.visible,
+          },
+          dropletRuleSchema,
+          logger,
+        );
+      } catch (e) {
+        logger.error('Cannot build valid rule for the schedule');
+        return;
+      }
+
+      const ruleStatement = db.prepare(
+        'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      );
+      ruleStatement.run(
+        dropletRule.strategy,
+        dropletRule.description,
+        dropletRule.multiplier,
+        dropletRule.chain,
+        dropletRule.status,
+        dropletRule.link,
+        dropletRule.link_text,
+        dropletRule.type,
+        dropletRule.featured,
+        dropletRule.visible,
+      );
+      logger.info('Rule has been inserted');
+    });
+    tx();
   });
 
 scheduleCli

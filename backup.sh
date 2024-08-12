@@ -5,7 +5,7 @@ if [ ! -d "$backup_dir" ]; then
     mkdir "$backup_dir"
 fi
 
-db_file="data.db"
+db_file="store/data.db"
 backup_filename="$(date +%Y-%m-%d-%H%M%S).db"
 backup_file="${backup_dir}/${backup_filename}"
 
