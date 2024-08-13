@@ -440,8 +440,8 @@ program
         );
         stmt.run({ $ts: firstTs });
         db.prepare<null, string>(
-          `UPDATE batches SET status="processed" WHERE batch_id IN (?)`,
-        ).run(batchIds.join(','));
+          `UPDATE batches SET status="processed" WHERE batch_id IN (${batchIds.join(',')})`,
+        );
       }
     });
     tx();
