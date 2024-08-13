@@ -1,7 +1,7 @@
 import { Logger } from 'pino';
-import { GraphQLClient, gql } from 'graphql-request';
 import Database from 'bun:sqlite';
-import { UserBondsResponse } from '../../types/graphQL/userBondsResponse';
+import { Comet38Client } from '@cosmjs/tendermint-rpc';
+import { CosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 
 export const updateReferralData = async (
   db: Database,
@@ -14,49 +14,57 @@ export const updateReferralData = async (
       .query<
         { height: number },
         null
-      >('SELECT COALESCE(MAX(height),0) height FROM referrals')
+      >(`SELECT COALESCE(MAX(height), 0) height FROM referrals`)
       .get(null)?.height || 0;
   logger.debug('Last Referral data at height %s', height);
-  const GET_KYC = gql`
-    query GetEvents($height: BigFloat!) {
-      userBonds(
-        filter: { height: { greaterThan: $height } }
-        orderBy: [HEIGHT_ASC]
-        first: 1000
-      ) {
-        nodes {
-          id
-          ref
-          height
-          ts
-        }
-      }
+  const client = await CosmWasmClient.connect(config.referral.rpc);
+  const cometClient = await Comet38Client.connect(config.referral.rpc);
+  const query = {
+    order_by: 'desc',
+    query: `execute._contract_address='${config.referral.core_contract}'`,
+  };
+  logger.debug('Query %o', query);
+  const data = await cometClient.txSearchAll(query);
+  logger.debug('Found %d txs', data.totalCount);
+  const out: { ref: string; receiver: string; height: number }[] = [];
+  for (const tx of data.txs) {
+    if (height > tx.height) {
+      break;
     }
-  `;
-  const client = new GraphQLClient(config.referral.graphql_url);
-
-  let data: UserBondsResponse;
-  try {
-    data = await client.request<UserBondsResponse>(GET_KYC, {
-      height,
-    });
-  } catch (e) {
-    logger.error(e);
-    return;
+    const hash = Buffer.from(tx.hash).toString('hex').toLocaleUpperCase();
+    logger.debug('Processing tx at %s - %s', tx.height, hash);
+    const wasmtx = await client.getTx(hash);
+    const wasmEvents = wasmtx?.events.find(
+      (e) => e.type === 'wasm-crates.io:drop-staking__drop-core-execute-bond',
+    );
+    const ref = wasmEvents?.attributes.find((e) => e.key === 'ref')?.value;
+    const receiver = wasmEvents?.attributes.find(
+      (e) => e.key === 'receiver',
+    )?.value;
+    if (ref && receiver) {
+      out.push({
+        ref,
+        receiver,
+        height: tx.height,
+      });
+    }
   }
-  if (!data) {
-    logger.error('No data received');
-    return;
-  }
-  if (data && data.userBonds.nodes.length === 0) {
-    logger.info('No new KYC data');
-    return;
-  }
-  for (const one of data.userBonds.nodes) {
+  logger.debug('Adding %d KYC data', out.length);
+  for (const one of out) {
     logger.debug('Adding KYC data %o', one);
+    const c = db
+      .query<
+        { count: number },
+        [string]
+      >('SELECT COUNT(*) count FROM referrals WHERE referral = ?')
+      .get(one.receiver);
+    if (c && c.count > 0) {
+      logger.debug('Referral already exists %o', one.receiver);
+      continue;
+    }
     db.exec<[string, string, number, number]>(
       'INSERT INTO referrals (referrer, referral, height, ts) VALUES (?, ?, ?, ?)',
-      [one.ref, one.id, one.height, (new Date(one.ts).getTime() / 1000) | 0],
+      [one.ref, one.receiver, one.height, (new Date().getTime() / 1000) | 0],
     );
   }
 };
