@@ -383,7 +383,7 @@ program
                 (address, asset_id, points, "change", prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
             SELECT 
               r.referrer address,
-              s.asset_id,
+              replace(replace(replace(s.asset_id, '_NTRN',''), '_ATOM', ''), '_USDC','') asset_id,
               0 points,
               0 "change",
               0 prev_points_l1,
@@ -393,7 +393,8 @@ program
                 0 place,
                 0 prev_place
             FROM referrals r
-            LEFT JOIN schedule s;
+            LEFT JOIN schedule s
+            GROUP BY address;
             `,
         );
         // calc L1, L2 points
@@ -439,7 +440,7 @@ program
           place = (SELECT place FROM ranked WHERE address = user_points_public.address)`,
         );
         stmt.run({ $ts: firstTs });
-        db.prepare<null, string>(
+        db.exec(
           `UPDATE batches SET status="processed" WHERE batch_id IN (${batchIds.join(',')})`,
         );
       }
