@@ -113,7 +113,7 @@ expressApp.use((req, res, next) => {
       }
     } else if (req.headers['authorization']) {
       logger.info(
-        'Authorization header is not congigured but set: %s',
+        'Authorization header is not configured but set: %s',
         req.headers['authorization'],
       );
     }
