@@ -22,7 +22,7 @@ const getDroplets =
         .query<
           { points: number; change: number; place: number },
           [string]
-        >('SELECT points, change, place FROM user_points_public WHERE address = ? LIMIT 1')
+        >('SELECT points + points_l1 + points_l2 as points, change, place FROM user_points_public WHERE address = ? LIMIT 1')
         .get(address);
     } catch (e) {
       logger.error(

@@ -459,7 +459,7 @@ program
         points: number;
       },
       null
-    >('SELECT address, points FROM user_points_public');
+    >('SELECT address, points + points_l1 + points_l2 as points FROM user_points_public');
     const publicPoints = publicPointsQuery.all(null);
 
     const {
