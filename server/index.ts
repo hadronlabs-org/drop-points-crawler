@@ -105,6 +105,22 @@ expressApp.get('/metrics', async (req, res, next) => {
   next();
 });
 
+expressApp.use((req, res, next) => {
+  if (req.url !== '/metrics') {
+    if (config.api_key) {
+      if (req.headers['authorization'] !== config.api_key) {
+        res.status(401).send('Unauthorized');
+      }
+    } else if (req.headers['authorization']) {
+      logger.info(
+        'Authorization header is not configured but set: %s',
+        req.headers['authorization'],
+      );
+    }
+    next();
+  }
+});
+
 expressApp.use(
   '/',
   trpcExpress.createExpressMiddleware({
