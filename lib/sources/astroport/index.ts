@@ -3,8 +3,7 @@ import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { queryContractOnHeight } from '../../query';
-import pLimit from 'p-limit';
-import { UserBalance } from '../../../types/sources/userBalance';
+
 import {
   QueryDenomOwnersRequest,
   QueryDenomOwnersResponse,
@@ -163,7 +162,6 @@ export default class AstroportSource implements SourceInterface {
     height: number,
     denom: string,
     pairContract: string,
-    lpTotalSupply: number,
   ): Promise<number> => {
     const client = await this.getClient();
     const pool = await queryContractOnHeight<{
@@ -175,14 +173,15 @@ export default class AstroportSource implements SourceInterface {
         };
         amount: string;
       }[];
+      total_share: string;
     }>(client, pairContract, height, {
       pool: {},
     });
+    this.logger.debug('Got pool %o', pool);
     const assetTotalSupply = pool.assets.find(
       (asset) => asset.info.native_token.denom === denom,
     )!.amount;
-
-    return Number(assetTotalSupply) / Number(lpTotalSupply);
+    return Number(assetTotalSupply) / Number(pool.total_share);
   };
 
   getUsersBalances = async (
@@ -198,24 +197,17 @@ export default class AstroportSource implements SourceInterface {
       this.logger.debug(
         `LP token for ${assetId}: ${lpToken} at height ${height}`,
       );
-      const lpSupply = await this.getTotalSupply(lpToken, height);
-      if (!lpSupply) {
-        this.logger.warn(`LP supply not found for ${assetId}`);
-        continue;
-      }
-      this.logger.debug(`LP supply ${lpSupply}`);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
         pairContract,
-        lpSupply,
       );
       this.logger.debug(`Exchange rate ${exchangeRate}`);
       let nextKey: undefined | Uint8Array = undefined;
       do {
         const { results, nextKey: newNextKey } = await this.getDenomBalances(
           lpToken,
-          multipliers[assetId] || 1,
+          (multipliers[assetId] || 1) * exchangeRate,
           height,
           nextKey,
         );
