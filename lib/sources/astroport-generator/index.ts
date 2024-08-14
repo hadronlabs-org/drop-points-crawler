@@ -49,17 +49,10 @@ export default class AstroportGeneratorSource extends AstroportSource {
       this.logger.debug(
         `LP token for ${assetId}: ${lpToken} at height ${height}`,
       );
-      const lpSupply = await this.getTotalSupply(lpToken, height);
-      if (!lpSupply) {
-        this.logger.warn(`LP supply not found for ${assetId}`);
-        continue;
-      }
-      this.logger.debug(`LP supply ${lpSupply}`);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
         pairContract,
-        lpSupply,
       );
       this.logger.debug(`Exchange rate ${exchangeRate}`);
       const multiplier = multipliers[assetId] * exchangeRate;
