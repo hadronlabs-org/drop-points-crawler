@@ -364,7 +364,7 @@ program
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT 
-            address, asset_id, SUM(points) points, SUM(points) points, 0, 0, 0, 0, 0, 0
+            address, asset_id, SUM(points) points, SUM(points) change, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
@@ -372,8 +372,9 @@ program
           GROUP BY 
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
-            change = user_points_public.points,
-            points = user_points_public.points + excluded.points`,
+            change = excluded.change,
+            points = user_points_public.points + excluded.points
+          `,
         );
         // select all referrers who are not in user_points_public and insert them into user_points_public for all assets
         // bc we need to calculate L1, L2 points for users who have no points
