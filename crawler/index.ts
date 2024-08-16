@@ -432,6 +432,14 @@ program
           `,
         );
         db.exec(
+          `
+            UPDATE 
+              user_points_public
+            SET
+              change = change + (points_l1 + points_l2) - (prev_points_l1 + prev_points_l2)
+          `,
+        );
+        db.exec(
           `WITH ranked as (
           select address, ROW_NUMBER() OVER (order by points + points_l1 + points_l2 DESC) place FROM user_points_public
         )
@@ -460,7 +468,9 @@ program
         points: number;
       },
       null
-    >('SELECT address, points + points_l1 + points_l2 as points FROM user_points_public');
+    >(
+      'SELECT address, points + points_l1 + points_l2 as points FROM user_points_public',
+    );
     const publicPoints = publicPointsQuery.all(null);
 
     const {
