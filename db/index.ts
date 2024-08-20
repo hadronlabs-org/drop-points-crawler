@@ -105,6 +105,7 @@ export const connect = (
       .get(null);
     if (row?.count === 0) {
       for (const [protocol_id, protocol] of Object.entries(config.protocols)) {
+        logger.debug('Inserting schedule for %s', protocol_id);
         for (const [asset_id, asset] of Object.entries(
           (protocol as any).assets,
         )) {
