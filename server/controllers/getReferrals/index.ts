@@ -73,23 +73,17 @@ const getReferrals =
     );
 
     const referrals: referral[] = [];
-    rows.forEach((row) => {
+    const l1Cash = new Set();
+    for (const row of rows) {
       const { l1Referral, l2Referral } = row;
-
-      const referralExists = referrals.find(
-        (referral) =>
-          referral.address === l1Referral || referral.address === l2Referral,
-      );
-      if (referralExists) return;
-
-      if (l1Referral) {
+      if (!l1Cash.has(l1Referral)) {
         referrals.push({
           address: l1Referral,
           level: 1,
           percent: levelOnePercent,
         });
       }
-
+      l1Cash.add(l1Referral);
       if (l2Referral) {
         referrals.push({
           address: l2Referral,
@@ -97,8 +91,7 @@ const getReferrals =
           percent: levelTwoPercent,
         });
       }
-    });
-
+    }
     return { referrals };
   };
 
