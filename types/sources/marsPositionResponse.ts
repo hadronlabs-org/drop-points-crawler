@@ -13,4 +13,16 @@ export interface MarsPositionResponse {
     amount: string;
     denom: string;
   }[];
+  staked_astro_lps: { denom: string; amount: string }[];
+  vaults: {
+    vault: {
+      address: string;
+    };
+    amount: {
+      locking: {
+        locked: string;
+        unlocking: string[];
+      };
+    };
+  }[];
 }
