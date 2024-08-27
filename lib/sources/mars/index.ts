@@ -11,11 +11,12 @@ export default class MarsSource implements SourceInterface {
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<string, { denom: string }> = {};
+  assets: Record<string, { denom: string; lp?: boolean }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
   nftContract: string;
   creditContract: string;
+  lpToDATOMRate: Record<string, number> = {};
 
   getClient = async () => {
     if (!this.client) {
@@ -144,7 +145,23 @@ export default class MarsSource implements SourceInterface {
   getBalanceAndDebt = (
     positions: MarsPositionResponse,
     denom: string,
+    assetId: string,
   ): { balance: bigint; debted: boolean } => {
+    if (this.assets[assetId].lp) {
+      if (positions.staked_astro_lps.length > 0) {
+        const foundAsset = positions.staked_astro_lps.find(
+          (lp) => lp.denom === denom,
+        );
+        const assetAmount = Number(foundAsset?.amount || '0');
+        if (assetAmount) {
+          return {
+            balance: BigInt((assetAmount * this.lpToDATOMRate[assetId]) | 0),
+            debted: positions.debts.length > 0,
+          };
+        }
+      }
+      return { balance: BigInt(0), debted: positions.debts.length > 0 };
+    }
     if (positions.deposits.length > 0) {
       const foundAsset = positions.deposits.find(
         (deposit) => deposit.denom === denom,
@@ -196,8 +213,11 @@ export default class MarsSource implements SourceInterface {
           this.logger.warn('Denom %s is invalid, skipping', assetId);
           break;
         }
-
-        const { balance, debted } = this.getBalanceAndDebt(positions, denom);
+        const { balance, debted } = this.getBalanceAndDebt(
+          positions,
+          denom,
+          assetId,
+        );
         if (balance) {
           result.push({
             address: owner,
@@ -242,6 +262,7 @@ export default class MarsSource implements SourceInterface {
         const { balance, debted } = this.getBalanceAndDebt(
           tokenPosition,
           denom,
+          assetId,
         );
         if (balance && !hasFittingPosition) hasFittingPosition = true;
         aggregatedBalance +=
@@ -258,8 +279,35 @@ export default class MarsSource implements SourceInterface {
         });
       }
     }
-
     return result;
+  };
+
+  getAtroLpExchangeRate = async (
+    height: number,
+    contract: string,
+  ): Promise<number> => {
+    const client = await this.getClient();
+    const sim = await queryContractOnHeight<
+      {
+        info: {
+          native_token: {
+            denom: string;
+          };
+        };
+        amount: string;
+      }[]
+    >(client, contract, height, {
+      simulate_withdraw: {
+        lp_amount: '1000000000',
+      },
+    });
+    const datomAmount = sim.find((one) =>
+      one.info?.native_token?.denom.endsWith('datom'),
+    )?.amount;
+    if (!datomAmount) {
+      throw new Error('No datom amount found');
+    }
+    return Number(datomAmount) / 1000000000;
   };
 
   getUsersBalances = async (
@@ -269,7 +317,15 @@ export default class MarsSource implements SourceInterface {
   ): Promise<void> => {
     let startAfter = undefined;
     let accountTokens: string[] = [];
-
+    for (const [assetId, asset] of Object.entries(this.assets)) {
+      if (asset.lp) {
+        const lpRate = await this.getAtroLpExchangeRate(
+          height,
+          asset.denom.split('/')[1],
+        );
+        this.lpToDATOMRate[assetId] = lpRate;
+      }
+    }
     while (true) {
       startAfter =
         accountTokens.length > 0
@@ -305,6 +361,7 @@ export default class MarsSource implements SourceInterface {
         'Finished fetching assets info from current batch of %d balances',
         settledResults.length,
       );
+
       cb(
         settledResults.reduce(
           (
