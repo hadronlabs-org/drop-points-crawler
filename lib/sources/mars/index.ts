@@ -154,6 +154,12 @@ export default class MarsSource implements SourceInterface {
         );
         const assetAmount = Number(foundAsset?.amount || '0');
         if (assetAmount) {
+          this.logger.trace(
+            'assetAmount * this.lpToDATOMRate[assetId] = %s * %s = %s',
+            assetAmount,
+            this.lpToDATOMRate[assetId],
+            (assetAmount * this.lpToDATOMRate[assetId]) | 0,
+          );
           return {
             balance: BigInt((assetAmount * this.lpToDATOMRate[assetId]) | 0),
             debted: positions.debts.length > 0,
@@ -308,6 +314,24 @@ export default class MarsSource implements SourceInterface {
       throw new Error('No datom amount found');
     }
     return Number(datomAmount) / 1000000000;
+  };
+
+  debugOneAccount = async (
+    height: number,
+    multipliers: Record<string, number>,
+    account: string,
+  ) => {
+    for (const [assetId, asset] of Object.entries(this.assets)) {
+      if (asset.lp) {
+        const lpRate = await this.getAtroLpExchangeRate(
+          height,
+          asset.denom.split('/')[1],
+        );
+        this.lpToDATOMRate[assetId] = lpRate;
+      }
+    }
+    this.logger.debug('lpToDATOMRate %o', this.lpToDATOMRate);
+    return this.getAddressAndBalances(height, multipliers, account);
   };
 
   getUsersBalances = async (
