@@ -278,6 +278,15 @@ pagination_limit = 100
 leasers = ['nolus1dca9sf0knq3qfg55mv2sn03rdw6gukkc4n764x5pvdgrgnpf9mzsfkcjp6']
 multiplier = 5
 ticker = "ST_ATOM"
+[protocols.nolus.assets.dATOM.frontend_data]
+multiplier = 3
+visible = true
+strategy = "dATOM"
+description = "Lease dATOM on Nolus"
+type = "lend-or-leverage"
+featured = false
+status = true
+
 
 [on_chain_storage]
 batch_size = 5000
