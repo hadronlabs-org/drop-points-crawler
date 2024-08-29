@@ -267,6 +267,27 @@ status = true
 # [protocols.neutron-levana.assets.dATOM]
 # neutron1an8ls6d57c4qcvjq0jmm27jtrpk65twewfjqzdn7annefv7gadqsjs7uc3
 
+
+[protocols.nolus]
+source = "nolus"
+rpc = "https://nolus-rpc.polkachu.com:443"
+jitter = 1
+concurrency_limit = 3
+pagination_limit = 100
+[protocols.nolus.assets.dATOM]
+leasers = ['nolus1dca9sf0knq3qfg55mv2sn03rdw6gukkc4n764x5pvdgrgnpf9mzsfkcjp6']
+multiplier = 5
+ticker = "ST_ATOM"
+[protocols.nolus.assets.dATOM.frontend_data]
+multiplier = 3
+visible = true
+strategy = "dATOM"
+description = "Lease dATOM on Nolus"
+type = "lend-or-leverage"
+featured = false
+status = true
+
+
 [on_chain_storage]
 batch_size = 5000
 rpc = "https://rpc-falcron.pion-1.ntrn.tech:443"
