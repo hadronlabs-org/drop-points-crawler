@@ -155,7 +155,9 @@ export default class MarsSource implements SourceInterface {
         const assetAmount = Number(foundAsset?.amount || '0');
         if (assetAmount) {
           return {
-            balance: BigInt((assetAmount * this.lpToDATOMRate[assetId]) | 0),
+            balance: BigInt(
+              Math.floor(assetAmount * this.lpToDATOMRate[assetId]),
+            ),
             debted: positions.debts.length > 0,
           };
         }
