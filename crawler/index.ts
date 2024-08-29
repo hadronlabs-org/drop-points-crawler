@@ -353,6 +353,7 @@ program
 
       if (options.publish) {
         logger.debug('Publishing points to users_points_public');
+
         const query = db.query<{ batch_id: number; ts: number }, string>(
           `SELECT batch_id, ts FROM batches WHERE status = ? ORDER BY batch_id ASC`,
         );
@@ -360,6 +361,9 @@ program
         const batchIds = all.map((row) => row.batch_id);
         logger.debug('Batch IDs: %s', batchIds.join(','));
         const firstTs = all[0].ts;
+
+        db.exec(`UPDATE user_points_public SET change = 0`);
+
         db.exec(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
@@ -376,6 +380,7 @@ program
             points = user_points_public.points + excluded.points
           `,
         );
+
         // select all referrers who are not in user_points_public and insert them into user_points_public for all assets
         // bc we need to calculate L1, L2 points for users who have no points
         db.exec(
@@ -386,7 +391,7 @@ program
               r.referrer address,
               replace(replace(replace(s.asset_id, '_NTRN',''), '_ATOM', ''), '_USDC','') asset_id,
               0 points,
-              0 "change",
+              0 change,
               0 prev_points_l1,
                 0 prev_points_l2,
                 0 points_l1,
@@ -398,6 +403,7 @@ program
             GROUP BY address;
             `,
         );
+
         // calc L1, L2 points
         const stmt = db.prepare<null, { $ts: number }>(
           `
@@ -431,6 +437,8 @@ program
             ),0)
           `,
         );
+        stmt.run({ $ts: firstTs });
+
         db.exec(
           `
             UPDATE 
@@ -439,6 +447,7 @@ program
               change = change + (points_l1 + points_l2) - (prev_points_l1 + prev_points_l2)
           `,
         );
+
         db.exec(
           `WITH ranked as (
           select address, ROW_NUMBER() OVER (order by points + points_l1 + points_l2 DESC) place FROM user_points_public
@@ -448,12 +457,13 @@ program
           prev_place = place,
           place = (SELECT place FROM ranked WHERE address = user_points_public.address)`,
         );
-        stmt.run({ $ts: firstTs });
+
         db.exec(
           `UPDATE batches SET status="processed" WHERE batch_id IN (${batchIds.join(',')})`,
         );
       }
     });
+
     tx();
     logger.info('Task has been finished');
   });

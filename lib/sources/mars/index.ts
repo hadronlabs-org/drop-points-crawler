@@ -11,11 +11,12 @@ export default class MarsSource implements SourceInterface {
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<string, { denom: string }> = {};
+  assets: Record<string, { denom: string; lp?: boolean }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
   nftContract: string;
   creditContract: string;
+  lpToDATOMRate: Record<string, number> = {};
 
   getClient = async () => {
     if (!this.client) {
@@ -141,13 +142,40 @@ export default class MarsSource implements SourceInterface {
     return data.owner;
   };
 
-  getBalanceOrNull = (positions: MarsPositionResponse, denom: string) => {
-    if (positions.lends.length > 0) {
-      const foundAsset = positions.lends.find((lend) => lend.denom === denom);
-      if (foundAsset) return foundAsset.amount;
+  getBalanceAndDebt = (
+    positions: MarsPositionResponse,
+    denom: string,
+    assetId: string,
+  ): { balance: bigint; debted: boolean } => {
+    if (this.assets[assetId].lp) {
+      if (positions.staked_astro_lps.length > 0) {
+        const foundAsset = positions.staked_astro_lps.find(
+          (lp) => lp.denom === denom,
+        );
+        const assetAmount = Number(foundAsset?.amount || '0');
+        if (assetAmount) {
+          return {
+            balance: BigInt(
+              Math.floor(assetAmount * this.lpToDATOMRate[assetId]),
+            ),
+            debted: positions.debts.length > 0,
+          };
+        }
+      }
+      return { balance: BigInt(0), debted: positions.debts.length > 0 };
+    }
+    if (positions.deposits.length > 0) {
+      const foundAsset = positions.deposits.find(
+        (deposit) => deposit.denom === denom,
+      );
+      if (foundAsset)
+        return {
+          balance: BigInt(foundAsset.amount),
+          debted: positions.debts.length > 0,
+        };
     }
 
-    return null;
+    return { balance: BigInt(0), debted: positions.debts.length > 0 };
   };
 
   getAddressAndBalances = async (
@@ -161,11 +189,15 @@ export default class MarsSource implements SourceInterface {
       accountToken,
     );
 
+    this.logger.debug('Fetching address and balances for %s', owner);
+
     const accountTokensOwned = await this.getAccountTokensOwned(
       this.nftContract,
       height,
       owner,
     );
+
+    this.logger.debug('accountTokensOwned: %o', accountTokensOwned);
 
     const result: { address: string; balance: string; asset: string }[] = [];
 
@@ -175,6 +207,7 @@ export default class MarsSource implements SourceInterface {
         height,
         accountToken,
       );
+      this.logger.debug('positions: %o', positions);
 
       for (const [assetId, asset] of Object.entries(this.assets)) {
         const { denom } = asset;
@@ -182,17 +215,22 @@ export default class MarsSource implements SourceInterface {
           this.logger.warn('Denom %s is invalid, skipping', assetId);
           break;
         }
-
-        const positionsBalance = this.getBalanceOrNull(positions, denom);
-        if (positionsBalance) {
+        const { balance, debted } = this.getBalanceAndDebt(
+          positions,
+          denom,
+          assetId,
+        );
+        if (balance) {
           result.push({
             address: owner,
             balance: (
-              (BigInt(positionsBalance) *
-                BigInt(Math.round(multipliers[assetId] * 10000))) /
+              (balance *
+                BigInt(
+                  Math.round((debted ? multipliers[assetId] : 1) * 10000),
+                )) /
               BigInt(10000)
             ).toString(),
-            asset: denom,
+            asset: assetId,
           });
         }
       }
@@ -203,48 +241,75 @@ export default class MarsSource implements SourceInterface {
     if (accountToken !== accountTokensOwned[0]) return [];
 
     const ownerPositions: Record<string, MarsPositionResponse> = {};
-    accountTokensOwned.forEach(async (accountToken) => {
+    for (const accountToken of accountTokensOwned) {
       const tokenPosition = await this.getAccountPosition(
         this.creditContract,
         height,
         accountToken,
       );
       ownerPositions[accountToken] = tokenPosition;
-    });
+    }
 
-    Object.entries(this.assets).forEach(([assetId, asset]) => {
+    for (const [assetId, asset] of Object.entries(this.assets)) {
       const { denom } = asset;
       if (!denom) {
         this.logger.warn('Denom %s is invalid, skipping', assetId);
       }
 
-      let aggregatedBalance = 0;
+      let aggregatedBalance = BigInt(0);
       let hasFittingPosition = false;
 
-      accountTokensOwned.forEach((accountToken) => {
+      for (const accountToken of accountTokensOwned) {
         const tokenPosition = ownerPositions[accountToken];
-
-        const balance = this.getBalanceOrNull(tokenPosition, denom);
-
+        const { balance, debted } = this.getBalanceAndDebt(
+          tokenPosition,
+          denom,
+          assetId,
+        );
         if (balance && !hasFittingPosition) hasFittingPosition = true;
-
-        aggregatedBalance += balance ? parseInt(balance, 10) : 0;
-      });
+        aggregatedBalance +=
+          (balance *
+            BigInt(Math.round((debted ? multipliers[assetId] : 1) * 10000))) /
+          BigInt(10000);
+      }
 
       if (hasFittingPosition) {
         result.push({
           address: owner,
-          balance: (
-            (BigInt(aggregatedBalance) *
-              BigInt(Math.round(multipliers[assetId] * 10000))) /
-            BigInt(10000)
-          ).toString(),
-          asset: denom,
+          balance: aggregatedBalance.toString(),
+          asset: assetId,
         });
       }
-    });
-
+    }
     return result;
+  };
+
+  getAtroLpExchangeRate = async (
+    height: number,
+    contract: string,
+  ): Promise<number> => {
+    const client = await this.getClient();
+    const sim = await queryContractOnHeight<
+      {
+        info: {
+          native_token: {
+            denom: string;
+          };
+        };
+        amount: string;
+      }[]
+    >(client, contract, height, {
+      simulate_withdraw: {
+        lp_amount: '1000000000',
+      },
+    });
+    const datomAmount = sim.find((one) =>
+      one.info?.native_token?.denom.endsWith('datom'),
+    )?.amount;
+    if (!datomAmount) {
+      throw new Error('No datom amount found');
+    }
+    return Number(datomAmount) / 1000000000;
   };
 
   getUsersBalances = async (
@@ -254,7 +319,15 @@ export default class MarsSource implements SourceInterface {
   ): Promise<void> => {
     let startAfter = undefined;
     let accountTokens: string[] = [];
-
+    for (const [assetId, asset] of Object.entries(this.assets)) {
+      if (asset.lp) {
+        const lpRate = await this.getAtroLpExchangeRate(
+          height,
+          asset.denom.split('/')[1],
+        );
+        this.lpToDATOMRate[assetId] = lpRate;
+      }
+    }
     while (true) {
       startAfter =
         accountTokens.length > 0
@@ -267,7 +340,6 @@ export default class MarsSource implements SourceInterface {
         startAfter,
       );
       if (accountTokens.length === 0) break;
-
       this.logger.debug(
         'Fetching assets info from current batch of %d balances',
         this.paginationLimit,
@@ -289,7 +361,7 @@ export default class MarsSource implements SourceInterface {
 
       this.logger.debug(
         'Finished fetching assets info from current batch of %d balances',
-        this.paginationLimit,
+        settledResults.length,
       );
 
       cb(
