@@ -108,6 +108,8 @@ export default class NolusSource implements SourceInterface {
             ),
           );
           let amount = 0;
+          this.logger.debug('Found %d responses', responses.length);
+          this.logger.trace('Responses: %o', responses);
           for (const response of responses) {
             const position = _.get(
               response,
@@ -118,11 +120,13 @@ export default class NolusSource implements SourceInterface {
               amount += Number(position.amount);
             }
           }
-          out.push({
-            address: user,
-            balance: (amount * multipliers[asset]).toString(),
-            asset,
-          });
+          if (amount) {
+            out.push({
+              address: user,
+              balance: (amount * multipliers[asset]).toString(),
+              asset,
+            });
+          }
         }
         cb(out);
         this.logger.info('Found %d users', users.length);
