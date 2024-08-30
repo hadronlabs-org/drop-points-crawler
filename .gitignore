@@ -10,3 +10,4 @@ config.toml
 /contracts/**/schema/
 /contracts/artifacts/
 /contracts/.rtx.toml
+/store/*
