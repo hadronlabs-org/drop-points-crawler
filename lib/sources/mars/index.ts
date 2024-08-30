@@ -146,7 +146,7 @@ export default class MarsSource implements SourceInterface {
     positions: MarsPositionResponse,
     denom: string,
     assetId: string,
-  ): { balance: bigint; debted: boolean } => {
+  ): { balance: bigint; boost: boolean } => {
     if (this.assets[assetId].lp) {
       if (positions.staked_astro_lps.length > 0) {
         const foundAsset = positions.staked_astro_lps.find(
@@ -158,11 +158,11 @@ export default class MarsSource implements SourceInterface {
             balance: BigInt(
               Math.floor(assetAmount * this.lpToDATOMRate[assetId]),
             ),
-            debted: positions.debts.length > 0,
+            boost: true,
           };
         }
       }
-      return { balance: BigInt(0), debted: positions.debts.length > 0 };
+      return { balance: BigInt(0), boost: positions.debts.length > 0 };
     }
     if (positions.deposits.length > 0) {
       const foundAsset = positions.deposits.find(
@@ -171,11 +171,11 @@ export default class MarsSource implements SourceInterface {
       if (foundAsset)
         return {
           balance: BigInt(foundAsset.amount),
-          debted: positions.debts.length > 0,
+          boost: positions.debts.length > 0,
         };
     }
 
-    return { balance: BigInt(0), debted: positions.debts.length > 0 };
+    return { balance: BigInt(0), boost: positions.debts.length > 0 };
   };
 
   getAddressAndBalances = async (
@@ -215,7 +215,7 @@ export default class MarsSource implements SourceInterface {
           this.logger.warn('Denom %s is invalid, skipping', assetId);
           break;
         }
-        const { balance, debted } = this.getBalanceAndDebt(
+        const { balance, boost: debted } = this.getBalanceAndDebt(
           positions,
           denom,
           assetId,
@@ -261,7 +261,7 @@ export default class MarsSource implements SourceInterface {
 
       for (const accountToken of accountTokensOwned) {
         const tokenPosition = ownerPositions[accountToken];
-        const { balance, debted } = this.getBalanceAndDebt(
+        const { balance, boost: debted } = this.getBalanceAndDebt(
           tokenPosition,
           denom,
           assetId,
