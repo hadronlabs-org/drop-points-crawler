@@ -762,17 +762,26 @@ kycCli
   .argument('<address>', 'Address')
   .option('-p --provider <provider>', 'KYC provider')
   .option('-i --id <kyc_id>', 'KYC id')
+  .option('-c --code <code>', 'Referral code')
   .action((address, options) => {
     address = neutronAddress.parse(address).toString();
     const kycId = options.id || `local_${address}`;
     const kycProvider = options.provider || 'local';
+    const userCode = options.code as string | undefined;
     logger.info(
       'Adding KYC for address %s, kyc id: %s, kyc provider: %s',
       address,
       kycId,
       kycProvider,
     );
-    const code = insertKYCRecord(db, logger, address, kycId, kycProvider);
+    const code = insertKYCRecord(
+      db,
+      logger,
+      address,
+      kycId,
+      kycProvider,
+      userCode,
+    );
     logger.info('Referral code: %s', code);
   });
 

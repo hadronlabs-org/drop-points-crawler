@@ -15,6 +15,7 @@ export const insertKYCRecord = (
   address: string,
   kycId: string,
   kycProvider: string,
+  code?: string,
 ): string => {
   const ts = (Date.now() / 1000) | 0;
   logger.debug('Insert KYC for address %s', address);
@@ -79,9 +80,7 @@ export const insertKYCRecord = (
   let attemptsNumber = 0;
   while (true) {
     attemptsNumber += 1;
-
-    referralCode = generateReferralCode();
-
+    referralCode = code || generateReferralCode();
     let codeFromDatabaseResult = null;
     try {
       codeFromDatabaseResult = db
