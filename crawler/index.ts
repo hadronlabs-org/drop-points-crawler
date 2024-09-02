@@ -16,6 +16,7 @@ import { getSigningCosmWasmClient } from '../lib/stargate';
 import { validateOnChainContractInfo } from '../lib/validations/config';
 import { getValidData } from '../types/utils';
 import { dropletRuleSchema } from '../types/config/dropletRule';
+import { RECALCULATE } from '../constants';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -183,6 +184,11 @@ program
   .argument('<protocol_id>', 'protocol to crawl')
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
+  .option(
+    '-r --recalculate',
+    'Mark if publish needs to recalculate points',
+    false,
+  )
   .action(async (protocolId: string, options) => {
     // Get the batch ID and height of the task
     const { batchId, height } = (() => {
@@ -231,7 +237,10 @@ program
     // Processing the source
     const sourceObj = new sources[
       config.protocols[protocolId].source as keyof typeof sources
-    ](config.protocols[protocolId].rpc, logger, config.protocols[protocolId]);
+    ](config.protocols[protocolId].rpc, logger, {
+      ...config.protocols[protocolId],
+      recalculate: options.recalculate,
+    });
     await sourceObj.getUsersBalances(
       height,
       multipliers,
@@ -270,8 +279,13 @@ program
 program
   .command('finish')
   .description('Calculate points for users and finish the task')
-  .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
+  .option('-b, --batch_id <batch_id>', 'Batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
+  .option(
+    '-r --recalculate',
+    'Mark if publish needs to recalculate points',
+    false,
+  )
   .action((options) => {
     const batchId = (() => {
       if (options.batch_id === undefined) {
@@ -473,8 +487,18 @@ program
           place = (SELECT place FROM ranked WHERE address = user_points_public.address)`,
         );
 
+        let processedBatchesIds = batchIds;
+        if (options.recalculate) {
+          const lastBatchId = processedBatchesIds.at(-1);
+          if (lastBatchId) {
+            if (lastBatchId < RECALCULATE.FIRST_MARKED_AS_PROCESSED_BATCH)
+              processedBatchesIds = [];
+            if (lastBatchId >= RECALCULATE.FIRST_MARKED_AS_PROCESSED_BATCH)
+              processedBatchesIds = processedBatchesIds.concat([1, 2, 3]);
+          }
+        }
         db.exec(
-          `UPDATE batches SET status="processed" WHERE batch_id IN (${batchIds.join(',')})`,
+          `UPDATE batches SET status="processed" WHERE batch_id IN (${processedBatchesIds})`,
         );
       }
     });
