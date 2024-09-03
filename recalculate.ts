@@ -38,7 +38,7 @@ async function main() {
   newDb.exec(`DELETE FROM user_points_public`);
 
   const batchesQuery = oldDb.query<
-    { batch_id: number; status: boolean; ts: number },
+    { batch_id: number; status: string; ts: number },
     null
   >('SELECT * FROM batches');
   const batches = batchesQuery.all(null);
@@ -100,7 +100,12 @@ async function main() {
       }
     }
 
-    const finishCommand = `bun crawl finish --publish --recalculate`;
+    let finishCommand;
+    if (batch.status === 'processed') {
+      finishCommand = `bun crawl finish --publish --recalculate`;
+    } else {
+      finishCommand = `bun crawl finish --recalculate`;
+    }
     console.log(`Running ${finishCommand}`);
     try {
       execSync(finishCommand);
