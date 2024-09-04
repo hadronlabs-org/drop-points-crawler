@@ -287,6 +287,26 @@ type = "lend-or-leverage"
 featured = false
 status = true
 
+[protocols.demex]
+source = "demex"
+rpc = "https://tm-api.carbon.network"
+insights_api = "https://api-insights.carbon.network"
+jitter = 1
+concurrency_limit = 5
+pagination_limit = 100
+[protocols.demex.assets.dATOM]
+multiplier = 3
+denom = "ibc/EF37C83E78BD1F9B2401B3B3E5C00E0DBA71A648E2A8C3018861786F7A5F0105"
+[protocols.demex.assets.dATOM.frontend_data]
+multiplier = 3
+visible = true
+strategy = "dATOM"
+description = "dATOM provided as collateral in Demex / Nitron"
+type = "lend-or-leverage"
+featured = false
+status = true
+
+
 
 [on_chain_storage]
 batch_size = 5000

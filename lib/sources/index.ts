@@ -7,6 +7,7 @@ import AstroportGeneratorSource from './astroport-generator';
 import ApolloSource from './apollo';
 import OsmosisLPSource from './osmosis-lp';
 import NolusSource from './nolus';
+import DemexSource from './demex';
 
 const out = {
   neutron: BankModuleSource,
@@ -19,6 +20,7 @@ const out = {
   generator: AstroportGeneratorSource,
   apollo: ApolloSource,
   nolus: NolusSource,
+  demex: DemexSource,
   'osmosis-lp': OsmosisLPSource,
 };
 export default out;
