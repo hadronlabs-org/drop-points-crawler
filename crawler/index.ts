@@ -491,10 +491,15 @@ program
         if (options.recalculate) {
           const lastBatchId = processedBatchesIds.at(-1);
           if (lastBatchId) {
-            if (lastBatchId < RECALCULATE.FIRST_MARKED_AS_PROCESSED_BATCH)
+            if (lastBatchId < RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH)
               processedBatchesIds = [];
-            if (lastBatchId >= RECALCULATE.FIRST_MARKED_AS_PROCESSED_BATCH)
-              processedBatchesIds = processedBatchesIds.concat([1, 2, 3]);
+            if (lastBatchId >= RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH)
+              processedBatchesIds = processedBatchesIds.concat(
+                Array.from(
+                  { length: RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH },
+                  (_, i) => i,
+                ),
+              );
           }
         }
         db.exec(

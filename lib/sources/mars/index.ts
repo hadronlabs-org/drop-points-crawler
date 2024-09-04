@@ -5,9 +5,11 @@ import pLimit from 'p-limit';
 import { SourceInterface } from '../../../types/sources/source';
 import { MarsPositionResponse } from '../../../types/sources/marsPositionResponse';
 import { Logger } from 'pino';
+import { RECALCULATE } from "../../../constants";
 
 export default class MarsSource implements SourceInterface {
   rpc: string;
+  recalculate: boolean;
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
@@ -37,6 +39,11 @@ export default class MarsSource implements SourceInterface {
       throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
+
+    if (!params.recalculate) {
+      throw new Error('No recalculation flag configured');
+    }
+    this.recalculate = params.recalculate;
 
     if (!params.nft_contract) {
       throw new Error('No mars nft contract configured in params');
@@ -143,6 +150,7 @@ export default class MarsSource implements SourceInterface {
   };
 
   getBalanceAndDebt = (
+    height: number,
     positions: MarsPositionResponse,
     denom: string,
     assetId: string,
@@ -158,7 +166,11 @@ export default class MarsSource implements SourceInterface {
             balance: BigInt(
               Math.floor(assetAmount * this.lpToDATOMRate[assetId]),
             ),
-            boost: true,
+            boost:
+              this.recalculate &&
+              height < RECALCULATE.FIRST_MARS_LP_CORRECT_HEIGHT
+                ? positions.debts.length > 0
+                : true,
           };
         }
       }
@@ -216,6 +228,7 @@ export default class MarsSource implements SourceInterface {
           break;
         }
         const { balance, boost: debted } = this.getBalanceAndDebt(
+          height,
           positions,
           denom,
           assetId,
@@ -262,6 +275,7 @@ export default class MarsSource implements SourceInterface {
       for (const accountToken of accountTokensOwned) {
         const tokenPosition = ownerPositions[accountToken];
         const { balance, boost: debted } = this.getBalanceAndDebt(
+          height,
           tokenPosition,
           denom,
           assetId,
@@ -284,7 +298,7 @@ export default class MarsSource implements SourceInterface {
     return result;
   };
 
-  getAtroLpExchangeRate = async (
+  getAstroLpExchangeRate = async (
     height: number,
     contract: string,
   ): Promise<number> => {
@@ -321,7 +335,7 @@ export default class MarsSource implements SourceInterface {
     let accountTokens: string[] = [];
     for (const [assetId, asset] of Object.entries(this.assets)) {
       if (asset.lp) {
-        const lpRate = await this.getAtroLpExchangeRate(
+        const lpRate = await this.getAstroLpExchangeRate(
           height,
           asset.denom.split('/')[1],
         );
