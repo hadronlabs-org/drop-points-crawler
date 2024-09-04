@@ -3,7 +3,7 @@ import { SourceInterface } from '../../../types/sources/source';
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 
-type MyCoin = { denom: string; amount: number };
+type DemexCoin = { denom: string; amount: number };
 
 export default class DemexSource implements SourceInterface {
   rpc: string;
@@ -29,12 +29,14 @@ export default class DemexSource implements SourceInterface {
     this.insightsApi = params.insights_api;
     logger.info('Demex source initialized');
   }
+
   getClient = async () => {
     if (!this.client) {
       this.client = await Tendermint37Client.connect(this.rpc);
     }
     return this.client;
   };
+
   getLastBlockHeight = async (): Promise<number> => {
     const client = await this.getClient();
     this.logger.info('Getting status for demex');
@@ -72,18 +74,15 @@ export default class DemexSource implements SourceInterface {
       result: {
         entries: {
           address: string;
-          borrowed: MyCoin[];
-          supplied: MyCoin[];
-          collateral: MyCoin[];
+          borrowed: DemexCoin[];
+          supplied: DemexCoin[];
+          collateral: DemexCoin[];
         }[];
       };
     };
     const out = [];
     for (const entry of data.result.entries) {
       const { address } = entry;
-      if (address === 'swth1hdga6p84cpc6gulk9ruxy5w0vpfx9dv8wgkzk6') {
-        this.logger.debug('DATA: %o', entry);
-      }
       for (const [asset, multiplier] of Object.entries(multipliers)) {
         const assetParams = this.assets[asset];
         const supplied = entry.supplied.find(
