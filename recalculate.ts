@@ -5,6 +5,35 @@ import { constants, Database } from 'bun:sqlite';
 
 const OLD_DATABASE = 'recalculate/old_data.db';
 const NEW_DATABASE = 'recalculate/new_data.db';
+const ADDITIONS_FILE = 'recalculate/additions.csv';
+
+async function parseCsvToMap(
+  filePath: string,
+): Promise<Record<number, [{ address: string; points: number }]>> {
+  const data = await fsPromises.readFile(filePath, 'utf8');
+
+  const lines = data.trim().split('\n');
+
+  const [headerLine, ...dataLines] = lines;
+  const headers = headerLine.split(',');
+
+  if (headers.length !== 3) {
+    throw new Error('CSV file does not have correct number of columns');
+  }
+
+  const result: Record<number, [{ address: string; points: number }]> = {};
+
+  for (const line of dataLines) {
+    const [address, batch_id, points] = line.split(',');
+    (result[parseInt(batch_id, 10)] =
+      result[parseInt(batch_id, 10)] || []).push({
+      address,
+      points: parseInt(points, 10),
+    });
+  }
+
+  return result;
+}
 
 async function main() {
   const currentDbFile = path.join(__dirname, OLD_DATABASE);
@@ -42,6 +71,8 @@ async function main() {
     null
   >('SELECT * FROM batches');
   const batches = batchesQuery.all(null);
+
+  const additions = await parseCsvToMap(ADDITIONS_FILE);
 
   for (const batch of batches) {
     console.log(`Processing batch ${batch.batch_id}...`);
@@ -88,7 +119,7 @@ async function main() {
     );
 
     const batchProtocols = tasks.map((task) => task.protocol_id);
-    console.log(batchProtocols);
+    console.log(`Enabled protocols are ${batchProtocols}`);
 
     for (const batchProtocol of batchProtocols) {
       const crawlCommand = `bun crawl crawl ${batchProtocol} --recalculate`;
@@ -101,17 +132,34 @@ async function main() {
     }
 
     let finishCommand;
-    if (batch.status === 'processed') {
-      finishCommand = `bun crawl finish --publish --recalculate`;
-    } else {
+
+    if (batch.batch_id === 1 || batch.status === 'new') {
       finishCommand = `bun crawl finish --recalculate`;
+    } else {
+      finishCommand = `bun crawl finish --publish --recalculate`;
     }
+
     console.log(`Running ${finishCommand}`);
     try {
       execSync(finishCommand);
     } catch (error) {
       console.error(`Error executing finish command: ${error}`);
     }
+
+    const batchAdditions = additions[batch.batch_id];
+    if (batchAdditions) {
+      batchAdditions.forEach((entity) => {
+        newDb.exec(`
+          INSERT INTO user_points (batch_id, address, asset_id, points)
+          VALUES (${batch.batch_id}, '${entity.address}', 'dATOM', ${entity.points})
+          ON CONFLICT (batch_id, address, asset_id) DO UPDATE SET
+            points = user_points.points + 10000000000
+          `);
+      });
+      console.log(`${batchAdditions.length} addresses were updated manually`);
+    }
+
+    if (batch.batch_id === 4) break;
   }
 }
 

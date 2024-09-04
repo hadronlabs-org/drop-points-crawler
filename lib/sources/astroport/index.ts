@@ -214,9 +214,9 @@ export default class AstroportSource implements SourceInterface {
       do {
         const multiplier =
           this.recalculate &&
-          height < RECALCULATE.FIRST_ASTROPORT_CORRECT_BATCH_HEIGHT
-            ? (multipliers[assetId] || 1) * exchangeRate
-            : multipliers[assetId] || 1;
+          height < RECALCULATE.FIRST_ASTROPORT_CORRECT_EXCHANGE_RATE_HEIGHT
+            ? multipliers[assetId] || 1
+            : (multipliers[assetId] || 1) * exchangeRate;
         const { results, nextKey: newNextKey } = await this.getDenomBalances(
           lpToken,
           multiplier,
