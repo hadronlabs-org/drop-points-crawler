@@ -5,7 +5,7 @@ import { constants, Database } from 'bun:sqlite';
 
 const OLD_DATABASE = 'recalculate/old_data.db';
 const NEW_DATABASE = 'recalculate/new_data.db';
-const ADDITIONS_FILE = 'recalculate/additions.csv';
+const CHANGES_FILE = 'recalculate/changes.csv';
 
 async function parseCsvToMap(
   filePath: string,
@@ -33,6 +33,21 @@ async function parseCsvToMap(
   }
 
   return result;
+}
+
+async function parseCsv(filePath: string): Promise<string[]> {
+  const data = await fsPromises.readFile(filePath, 'utf8');
+
+  const lines = data.trim().split('\n');
+
+  const [headerLine, ...dataLines] = lines;
+  const headers = headerLine.split(',');
+
+  if (headers.length !== 3) {
+    throw new Error('CSV file does not have correct number of columns');
+  }
+
+  return dataLines;
 }
 
 async function main() {
@@ -72,7 +87,20 @@ async function main() {
   >('SELECT * FROM batches');
   const batches = batchesQuery.all(null);
 
-  const additions = await parseCsvToMap(ADDITIONS_FILE);
+  newDb.exec(
+    `CREATE TABLE IF NOT EXISTS changes (address TEXT, batch_id TEXT, points INTEGER, PRIMARY KEY(address, batch_id DESC));`,
+  );
+
+  const changesLines = await parseCsv(CHANGES_FILE);
+  changesLines.forEach((line) => {
+    const [address, batchId, points] = line.split(',');
+    newDb.exec(`
+          INSERT INTO changes (address, batch_id, points)
+          VALUES ('${address}', '${batchId}', ${points})
+          ON CONFLICT (address, batch_id) DO UPDATE SET
+            points = changes.points + excluded.points
+          `);
+  });
 
   for (const batch of batches) {
     console.log(`Processing batch ${batch.batch_id}...`);
@@ -146,20 +174,26 @@ async function main() {
       console.error(`Error executing finish command: ${error}`);
     }
 
-    const batchAdditions = additions[batch.batch_id];
-    if (batchAdditions) {
-      batchAdditions.forEach((entity) => {
+    const batchChangesQuery = newDb.query<
+      {
+        address: string;
+        batch_id: number;
+        points: number;
+      },
+      [number]
+    >('SELECT * FROM changes WHERE batch_id = ?');
+    const batchChanges = batchChangesQuery.all(batch.batch_id);
+    if (batchChanges) {
+      batchChanges.forEach((change) => {
         newDb.exec(`
           INSERT INTO user_points (batch_id, address, asset_id, points)
-          VALUES (${batch.batch_id}, '${entity.address}', 'dATOM', ${entity.points})
+          VALUES (${batch.batch_id}, '${change.address}', 'dATOM', ${change.points})
           ON CONFLICT (batch_id, address, asset_id) DO UPDATE SET
-            points = user_points.points + 10000000000
+            points = user_points.points + excluded.points
           `);
       });
-      console.log(`${batchAdditions.length} addresses were updated manually`);
+      console.log(`${batchChanges.length} addresses were updated manually`);
     }
-
-    if (batch.batch_id === 4) break;
   }
 }
 
