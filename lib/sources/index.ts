@@ -8,6 +8,7 @@ import ApolloSource from './apollo';
 import OsmosisLPSource from './osmosis-lp';
 import NolusSource from './nolus';
 import DemexSource from './demex';
+import PryzmSource from './pryzm';
 
 const out = {
   neutron: BankModuleSource,
@@ -21,6 +22,7 @@ const out = {
   apollo: ApolloSource,
   nolus: NolusSource,
   demex: DemexSource,
+  pryzm: PryzmSource,
   'osmosis-lp': OsmosisLPSource,
 };
 export default out;
