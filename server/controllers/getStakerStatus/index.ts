@@ -1,7 +1,7 @@
 import {
-  tRPCGetStakerRequest,
-  tRPCGetStakerResponse,
-} from '../../../types/tRPC/tRPCGetStaker';
+  tRPCGetStakerStatusRequest,
+  tRPCGetStakerStatusResponse,
+} from '../../../types/tRPC/tRPCGetStakerStatus';
 import { Logger } from 'pino';
 import { gql, GraphQLClient } from 'graphql-request';
 
@@ -15,9 +15,11 @@ const GET_STAKER = gql`
   }
 `;
 
-const getStaker =
+const GetStakerStatus =
   (graphqlUrl: string, logger: Logger) =>
-  async (req: tRPCGetStakerRequest): Promise<tRPCGetStakerResponse> => {
+  async (
+    req: tRPCGetStakerStatusRequest,
+  ): Promise<tRPCGetStakerStatusResponse> => {
     const {
       input: { address },
     } = req;
@@ -31,4 +33,4 @@ const getStaker =
     return { bonded: data.userBondPlains.nodes.length > 0 };
   };
 
-export { getStaker };
+export { GetStakerStatus };
