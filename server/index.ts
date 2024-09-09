@@ -46,6 +46,11 @@ import {
   tRPCGetKVDataRequestSchema,
   tRPCGetKVDataResponseSchema,
 } from '../types/tRPC/tRPCGetKVData';
+import {
+  tRPCGetStakerRequestSchema,
+  tRPCGetStakerResponseSchema,
+} from '../types/tRPC/tRPCGetStaker';
+import { getStaker } from './controllers/getStaker';
 
 const expressApp = express();
 
@@ -86,6 +91,10 @@ const appRouter = router({
     .input(tRPCGetReferrerRequestSchema)
     .output(tRPCGetReferrerResponseSchema)
     .query(getReferrer(db, logger)),
+  getStaker: publicProcedure
+    .input(tRPCGetStakerRequestSchema)
+    .output(tRPCGetStakerResponseSchema)
+    .query(getStaker(config.referral.graphql_url, logger)),
   getReferrals: publicProcedure
     .input(tRPCGetReferralsRequestSchema)
     .output(tRPCGetReferralsResponseSchema)
