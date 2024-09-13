@@ -9,11 +9,13 @@ import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { SourceInterface } from '../../../types/sources/source';
 import { Logger } from 'pino';
 
-export default class BankModuleSource implements SourceInterface {
+export default class BankModuleSource<A = Record<string, { denom: string }>>
+  implements SourceInterface
+{
   rpc: string;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<string, { denom: string }> = {};
+  assets: A;
   sourceName: string;
   client: Tendermint34Client | undefined;
 

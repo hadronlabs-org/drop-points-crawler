@@ -330,18 +330,30 @@ program
         `
       INSERT 
         INTO user_points (batch_id, address, asset_id, points)
-        SELECT batch_id, address, xasset_id asset_id, points FROM
-        (SELECT ud.batch_id, ud.address, replace(replace(replace(ud.asset, '_NTRN',''), '_ATOM', ''), '_USDC','')  xasset_id, FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
-        FROM 
-          user_data ud
-        LEFT JOIN 
-          prices p ON (p.asset_id = ud.asset AND p.batch_id = ud.batch_id)
-        WHERE 
-          ud.batch_id = ?
-        AND
-          address NOT IN (select address from blacklist)
-        GROUP BY 
-          ud.batch_id, ud.address, xasset_id) x 
+        SELECT 
+          batch_id, address, xasset_id asset_id, points 
+        FROM
+          (
+            SELECT 
+              ud.batch_id, 
+              ud.address, 
+              CASE 
+                WHEN INSTR(ud.asset, '_') > 0 
+                THEN SUBSTR(ud.asset, 1, INSTR(ud.asset, '_') - 1) 
+                ELSE ud.asset 
+				      END AS xasset_id, 
+              FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
+            FROM 
+              user_data ud
+            LEFT JOIN 
+              prices p ON (p.asset_id = xasset_id AND p.batch_id = ud.batch_id)
+            WHERE 
+              ud.batch_id = ?
+            AND
+              address NOT IN (select address from blacklist)
+            GROUP BY 
+              ud.batch_id, ud.address, xasset_id
+          ) x 
       `,
         [batchId],
       );
@@ -389,7 +401,10 @@ program
                 (address, asset_id, points, "change", prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
             SELECT 
               r.referrer address,
-              replace(replace(replace(s.asset_id, '_NTRN',''), '_ATOM', ''), '_USDC','') asset_id,
+               CASE 
+                WHEN INSTR(s.asset_id, '_') > 0 
+                THEN SUBSTR(s.asset_id, 1, INSTR(s.asset_id, '_') - 1) 
+                ELSE s.asset_id END AS asset_id,
               0 points,
               0 change,
               0 prev_points_l1,
