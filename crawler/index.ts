@@ -372,6 +372,31 @@ program
         [batchId],
       );
 
+      if (options.recalculate) {
+        const batchChangesQuery = db.query<
+          {
+            address: string;
+            batch_id: number;
+            points: number;
+          },
+          [number]
+        >('SELECT * FROM changes WHERE batch_id = ?');
+        const batchChanges = batchChangesQuery.all(batchId);
+        if (batchChanges) {
+          batchChanges.forEach((change) => {
+            db.exec(`
+              INSERT INTO user_points (batch_id, address, asset_id, points)
+              VALUES (${batchId}, '${change.address}', 'dATOM', ${change.points})
+              ON CONFLICT (batch_id, address, asset_id) DO UPDATE SET
+                points = user_points.points + excluded.points
+            `);
+          });
+          logger.debug(
+            `${batchChanges.length} addresses were updated manually while recalculating`,
+          );
+        }
+      }
+
       db.exec<[number]>(
         'UPDATE tasks SET status = "processed" WHERE batch_id = ?',
         [batchId],
@@ -386,7 +411,19 @@ program
         const all = query.all('new');
         const batchIds = all.map((row) => row.batch_id);
         logger.debug('Batch IDs: %s', batchIds.join(','));
-        const firstTs = all[0].ts;
+
+        let firstTs = all[0].ts;
+        if (options.recalculate) {
+          const lastBatchId = batchIds.at(-1);
+          if (
+            lastBatchId &&
+            lastBatchId <= RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH
+          ) {
+            firstTs = all[lastBatchId - 1].ts;
+          }
+          logger.debug('Last batch id is %s', lastBatchId);
+          logger.debug('First ts is %s', firstTs);
+        }
 
         db.exec(`UPDATE user_points_public SET change = 0`);
 

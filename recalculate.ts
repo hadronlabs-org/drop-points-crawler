@@ -7,34 +7,6 @@ const OLD_DATABASE = 'recalculate/old_data.db';
 const NEW_DATABASE = 'recalculate/new_data.db';
 const CHANGES_FILE = 'recalculate/changes.csv';
 
-async function parseCsvToMap(
-  filePath: string,
-): Promise<Record<number, [{ address: string; points: number }]>> {
-  const data = await fsPromises.readFile(filePath, 'utf8');
-
-  const lines = data.trim().split('\n');
-
-  const [headerLine, ...dataLines] = lines;
-  const headers = headerLine.split(',');
-
-  if (headers.length !== 3) {
-    throw new Error('CSV file does not have correct number of columns');
-  }
-
-  const result: Record<number, [{ address: string; points: number }]> = {};
-
-  for (const line of dataLines) {
-    const [address, batch_id, points] = line.split(',');
-    (result[parseInt(batch_id, 10)] =
-      result[parseInt(batch_id, 10)] || []).push({
-      address,
-      points: parseInt(points, 10),
-    });
-  }
-
-  return result;
-}
-
 async function parseCsv(filePath: string): Promise<string[]> {
   const data = await fsPromises.readFile(filePath, 'utf8');
 
@@ -169,31 +141,113 @@ async function main() {
 
     console.log(`Running ${finishCommand}`);
     try {
-      execSync(finishCommand);
+      const buf = execSync(finishCommand);
+      console.log(Buffer.from(buf).toString());
     } catch (error) {
       console.error(`Error executing finish command: ${error}`);
     }
 
-    const batchChangesQuery = newDb.query<
+    const checkLevelOneQuery = newDb.query<
       {
-        address: string;
-        batch_id: number;
-        points: number;
+        row_count: number;
       },
-      [number]
-    >('SELECT * FROM changes WHERE batch_id = ?');
-    const batchChanges = batchChangesQuery.all(batch.batch_id);
-    if (batchChanges) {
-      batchChanges.forEach((change) => {
-        newDb.exec(`
-          INSERT INTO user_points (batch_id, address, asset_id, points)
-          VALUES (${batch.batch_id}, '${change.address}', 'dATOM', ${change.points})
-          ON CONFLICT (batch_id, address, asset_id) DO UPDATE SET
-            points = user_points.points + excluded.points
-          `);
-      });
-      console.log(`${batchChanges.length} addresses were updated manually`);
+      [null]
+    >(`
+          WITH batch_3_ts AS (
+              SELECT ts 
+              FROM batches 
+              WHERE batch_id = 3
+          ),
+          level_one_referral_points AS (
+              SELECT
+                  r.referrer AS referrer,
+                  SUM(
+                      CASE
+                          WHEN up.batch_id IN (1, 2) AND kyc.ts < (SELECT ts FROM batch_3_ts) THEN up.points
+                          ELSE up.points
+                      END
+                  ) * 0.25 AS referral_points_total
+              FROM
+                  referrals r
+              LEFT JOIN
+                  user_points up ON r.referral = up.address
+              LEFT JOIN
+                  batches b ON up.batch_id = b.batch_id
+              LEFT JOIN
+                  user_kyc kyc ON r.referrer = kyc.address
+              WHERE
+                  (b.ts >= kyc.ts AND up.batch_id NOT IN (1, 2))
+                  OR
+                  (up.batch_id IN (1, 2) AND kyc.ts < (SELECT ts FROM batch_3_ts))
+              GROUP BY
+                  r.referrer
+          )
+          SELECT
+              COUNT(*) AS row_count
+          FROM
+              level_one_referral_points l1rp
+          LEFT JOIN
+              user_points_public upp ON l1rp.referrer = upp.address
+          WHERE
+              ABS((l1rp.referral_points_total / 1000000.0) - (COALESCE(upp.points_l1, 0) / 1000000.0)) >= 1;
+    `);
+    const checkLevelOne = checkLevelOneQuery.get(null);
+    if (checkLevelOne) {
+      console.log(`${checkLevelOne.row_count} addresses are broken with l1`);
     }
+
+    const checkLevelTwoQuery = newDb.query<
+      {
+        row_count: number;
+      },
+      [null]
+    >(`
+          WITH batch_3_ts AS (
+              SELECT ts 
+              FROM batches 
+              WHERE batch_id = 3
+          ),
+          level_two_referral_points AS (
+              SELECT
+                  r1.referrer AS level_two_referrer,
+                  SUM(
+                      CASE
+                          WHEN up.batch_id IN (1, 2) AND kyc.ts < (SELECT ts FROM batch_3_ts) THEN up.points
+                          ELSE up.points
+                      END
+                  ) * 0.125 AS referral_points_total_l2
+              FROM
+                  referrals r1
+              JOIN
+                  referrals r2 ON r1.referral = r2.referrer  -- Join to get the referrals of referrals (level two)
+              LEFT JOIN
+                  user_points up ON r2.referral = up.address
+              LEFT JOIN
+                  batches b ON up.batch_id = b.batch_id
+              LEFT JOIN
+                  user_kyc kyc ON r1.referrer = kyc.address
+              WHERE
+                  (b.ts >= kyc.ts AND up.batch_id NOT IN (1, 2))
+                  OR
+                  (up.batch_id IN (1, 2) AND kyc.ts < (SELECT ts FROM batch_3_ts))
+              GROUP BY
+                  r1.referrer
+          )
+          SELECT
+              COUNT(*) AS row_count
+          FROM
+              level_two_referral_points l2rp
+          LEFT JOIN
+              user_points_public upp ON l2rp.level_two_referrer = upp.address
+          WHERE
+              ABS((l2rp.referral_points_total_l2 / 1000000.0) - (COALESCE(upp.points_l2, 0) / 1000000.0)) >= 1;
+    `);
+    const checkLevelTwo = checkLevelTwoQuery.get(null);
+    if (checkLevelTwo) {
+      console.log(`${checkLevelTwo.row_count} addresses are broken with l2`);
+    }
+
+    // if (batch.batch_id === 3) break;
   }
 }
 
