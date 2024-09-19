@@ -356,7 +356,7 @@ program
                 THEN SUBSTR(ud.asset, 1, INSTR(ud.asset, '_') - 1) 
                 ELSE ud.asset 
 				      END AS xasset_id, 
-              FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
+              CAST(SUM(p.price * ud.balance * ${tsKf}) AS INTEGER) points
             FROM 
               user_data ud
             LEFT JOIN 
@@ -380,7 +380,9 @@ program
             points: number;
           },
           [number]
-        >('SELECT * FROM changes WHERE batch_id = ?');
+        >(
+          'SELECT address, batch_id, points FROM changes WHERE batch_id = ? AND points <> 0',
+        );
         const batchChanges = batchChangesQuery.all(batchId);
         if (batchChanges) {
           batchChanges.forEach((change) => {
@@ -392,7 +394,7 @@ program
             `);
           });
           logger.debug(
-            `${batchChanges.length} addresses were updated manually while recalculating`,
+            `${batchChanges.length} addresses user points were updated manually while recalculating`,
           );
         }
       }
@@ -413,14 +415,13 @@ program
         logger.debug('Batch IDs: %s', batchIds.join(','));
 
         let firstTs = all[0].ts;
-        if (options.recalculate) {
-          const lastBatchId = batchIds.at(-1);
-          if (
-            lastBatchId &&
-            lastBatchId <= RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH
-          ) {
-            firstTs = all[lastBatchId - 1].ts;
-          }
+        const lastBatchId = batchIds.at(-1);
+        if (
+          options.recalculate &&
+          lastBatchId &&
+          lastBatchId <= RECALCULATE.LAST_NOT_MARKED_AS_PROCESSED_BATCH
+        ) {
+          firstTs = all[lastBatchId - 1].ts;
           logger.debug('Last batch id is %s', lastBatchId);
           logger.debug('First ts is %s', firstTs);
         }
@@ -471,7 +472,7 @@ program
         );
 
         // calc L1, L2 points
-        const stmt = db.prepare<null, { $ts: number }>(
+        let stmt = db.prepare<null, { $ts: number }>(
           `
           UPDATE 
             user_points_public
@@ -480,7 +481,7 @@ program
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
               SELECT 
-                FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
+                CAST(SUM(upp1.change) * ${config.l1_percent / 100} AS INTEGER)
               FROM 
                 referrals r
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
@@ -491,7 +492,7 @@ program
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
               SELECT 
-                FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
+                CAST(SUM(upp2.change) * ${config.l2_percent / 100} AS INTEGER)
               FROM 
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
@@ -503,6 +504,47 @@ program
             ),0)
           `,
         );
+
+        if (options.recalculate) {
+          const query = db.query<{ height: number }, number>(
+            `SELECT height FROM tasks WHERE ts = $ts LIMIT 1`,
+          );
+          const batchHeight = query.all(firstTs)[0].height;
+
+          stmt = db.prepare<null, { $ts: number }>(
+            `
+          UPDATE 
+            user_points_public
+          SET 
+            prev_points_l1 = points_l1,
+            prev_points_l2 = points_l2,
+            points_l1 = COALESCE(points_l1,0) + COALESCE((
+              SELECT 
+                CAST(SUM(upp1.change) * ${config.l1_percent / 100} AS INTEGER)
+              FROM 
+                referrals r
+              LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.height <= ${batchHeight})
+              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
+              WHERE
+                r.referrer = user_points_public.address AND
+                k.address IS NOT NULL
+            ),0),
+            points_l2 = COALESCE(points_l2,0) + COALESCE((
+              SELECT 
+                CAST(SUM(upp2.change) * ${config.l2_percent / 100} AS INTEGER)
+              FROM 
+                referrals r2
+              LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.height <= ${batchHeight})
+              LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.height <= ${batchHeight})
+              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= $ts)
+              WHERE
+                r2.referrer = user_points_public.address AND
+                k2.address IS NOT NULL
+            ),0)
+          `,
+          );
+        }
+
         stmt.run({ $ts: firstTs });
 
         db.exec(
@@ -542,6 +584,37 @@ program
         db.exec(
           `UPDATE batches SET status="processed" WHERE batch_id IN (${processedBatchesIds})`,
         );
+
+        if (options.recalculate) {
+          const batchChangesQuery = db.query<
+            {
+              address: string;
+              batch_id: number;
+              points_l1: number;
+              points_l2: number;
+            },
+            [number]
+          >(
+            'SELECT address, batch_id, points_l1, points_l2 FROM changes WHERE batch_id = ? AND (points_l1 <> 0 OR points_l2 <> 0)',
+          );
+          const batchChanges = batchChangesQuery.all(batchId);
+          if (batchChanges) {
+            batchChanges.forEach((change) => {
+              db.exec(`
+              UPDATE 
+                user_points_public
+              SET 
+                points_l1 = COALESCE(points_l1,0) + COALESCE(${change.points_l1}, 0),
+                points_l2 = COALESCE(points_l2,0) + COALESCE(${change.points_l2}, 0)
+               WHERE
+                address = '${change.address}'
+            `);
+            });
+            logger.debug(
+              `${batchChanges.length} addresses referral points were updated manually while recalculating`,
+            );
+          }
+        }
       }
     });
 
