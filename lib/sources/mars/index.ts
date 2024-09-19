@@ -5,7 +5,7 @@ import pLimit from 'p-limit';
 import { SourceInterface } from '../../../types/sources/source';
 import { MarsPositionResponse } from '../../../types/sources/marsPositionResponse';
 import { Logger } from 'pino';
-import { RECALCULATE } from "../../../constants";
+import { RECALCULATE } from '../../../constants';
 
 export default class MarsSource implements SourceInterface {
   rpc: string;
