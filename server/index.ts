@@ -11,6 +11,7 @@ import { getReferralCode } from './controllers/getReferralCode';
 import { getReferrer } from './controllers/getReferrer';
 import { getReferrals } from './controllers/getReferrals';
 import { getRules } from './controllers/getRules';
+import { getStakerStatus } from './controllers/getStakerStatus';
 import { getLogger } from '../lib/logger';
 import {
   tRPCGetDropletsRequestSchema,
@@ -50,7 +51,6 @@ import {
   tRPCGetStakerStatusRequestSchema,
   tRPCGetStakerStatusResponseSchema,
 } from '../types/tRPC/tRPCGetStakerStatus';
-import { GetStakerStatus } from './controllers/getStakerStatus';
 
 const expressApp = express();
 
@@ -94,7 +94,7 @@ const appRouter = router({
   getStakerStatus: publicProcedure
     .input(tRPCGetStakerStatusRequestSchema)
     .output(tRPCGetStakerStatusResponseSchema)
-    .query(GetStakerStatus(config.referral.graphql_url, logger)),
+    .query(getStakerStatus(config, logger)),
   getReferrals: publicProcedure
     .input(tRPCGetReferralsRequestSchema)
     .output(tRPCGetReferralsResponseSchema)
