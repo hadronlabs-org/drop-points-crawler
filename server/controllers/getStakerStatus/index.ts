@@ -2,8 +2,8 @@ import {
   MAINNET_ENVIRONMENT,
   TESTNET_ENVIRONMENT,
   tRPCGetStakerStatusRequest,
-  tRPCGetStakerStatusResponse,
-} from '../../../types/tRPC/tRPCGetStakerStatus';
+  tRPCGetStakerStatusResponse
+} from "../../../types/tRPC/tRPCGetStakerStatus";
 import { Logger } from 'pino';
 import { gql, GraphQLClient } from 'graphql-request';
 import { TRPCError } from '@trpc/server';
