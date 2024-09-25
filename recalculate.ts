@@ -3,19 +3,24 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { constants, Database } from 'bun:sqlite';
 
-const OLD_DATABASE = 'recalculate/36-data.db';
+const OLD_DATABASE = 'recalculate/old_data.db';
 const NEW_DATABASE = 'recalculate/new_data.db';
 const CHANGES_FILE = 'recalculate/changes.csv';
+const ALIASES_FILE = 'recalculate/aliases.csv';
 
-async function parseCsv(filePath: string): Promise<string[]> {
+async function parseCsv(
+  filePath: string,
+  separator: string,
+  numberOfColumns: number,
+): Promise<string[]> {
   const data = await fsPromises.readFile(filePath, 'utf8');
 
   const lines = data.trim().split('\n');
 
   const [headerLine, ...dataLines] = lines;
-  const headers = headerLine.split(',');
+  const headers = headerLine.split(separator);
 
-  if (headers.length !== 5) {
+  if (headers.length !== numberOfColumns) {
     throw new Error('CSV file does not have correct number of columns');
   }
 
@@ -59,26 +64,43 @@ async function main() {
   >('SELECT * FROM batches');
   const batches = batchesQuery.all(null);
 
-  newDb.exec(
-    `CREATE TABLE IF NOT EXISTS changes (address TEXT, batch_id TEXT, points INTEGER, points_l1 INTEGER, points_l2 INTEGER, PRIMARY KEY(address, batch_id DESC));`,
-  );
+  const createChangesQuery = `CREATE TABLE IF NOT EXISTS changes (address TEXT, batch_id TEXT, points INTEGER, points_l1 INTEGER, points_l2 INTEGER, PRIMARY KEY(address, batch_id DESC));`;
+  oldDb.exec(createChangesQuery);
+  newDb.exec(createChangesQuery);
 
-  const changesLines = await parseCsv(CHANGES_FILE);
+  const clearChangesQuery = `DELETE FROM changes;`;
+  oldDb.exec(clearChangesQuery);
+  newDb.exec(clearChangesQuery);
+
+  const changesLines = await parseCsv(CHANGES_FILE, ',', 5);
   changesLines.forEach((line) => {
     const [address, batchId, points, points_l1, points_l2] = line.split(',');
-    newDb.exec(`
+    const insertChangeQuery = `
           INSERT INTO changes (address, batch_id, points, points_l1, points_l2)
           VALUES ('${address}', '${batchId}', ${points}, ${points_l1}, ${points_l2})
           ON CONFLICT (address, batch_id) DO UPDATE SET
             points = changes.points + excluded.points,
             points_l1 = changes.points_l1 + excluded.points_l1,
             points_l2 = changes.points_l2 + excluded.points_l2
-          `);
+          `;
+    oldDb.exec(insertChangeQuery);
+    newDb.exec(insertChangeQuery);
   });
 
-  newDb.exec(
-    `CREATE TABLE IF NOT EXISTS batch_heights (batch_id INTEGER, height INTEGER, ts INTEGER);`,
-  );
+  const createAliasesQuery = `CREATE TABLE IF NOT EXISTS aliases (alias TEXT, address TEXT, code TEXT, PRIMARY KEY(alias));`;
+  oldDb.exec(createAliasesQuery);
+  newDb.exec(createAliasesQuery);
+
+  const aliasesLines = await parseCsv(ALIASES_FILE, ';', 3);
+  aliasesLines.forEach((line) => {
+    const [alias, address, code] = line.split(';');
+    const insertAliasQuery = `
+          INSERT OR IGNORE INTO aliases (alias, address, code)
+          VALUES ('${alias}', '${address}', '${code}')
+          `;
+    oldDb.exec(insertAliasQuery);
+    newDb.exec(insertAliasQuery);
+  });
 
   const thirdBatchTsQuery = oldDb.query<{ batch_3_ts: number }, null>(
     `SELECT ts AS batch_3_ts FROM batches WHERE batch_id = 3`,
@@ -365,8 +387,6 @@ async function main() {
     if (checkLevelTwo) {
       console.log(`${checkLevelTwo.row_count} addresses are broken with l2`);
     }
-
-    // if (batch.batch_id == 4) break;
   }
 
   console.log(checkLevelOneQueryText);
