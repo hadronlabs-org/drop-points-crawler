@@ -356,7 +356,7 @@ program
                 THEN SUBSTR(ud.asset, 1, INSTR(ud.asset, '_') - 1) 
                 ELSE ud.asset 
 				      END AS xasset_id, 
-              CAST(SUM(p.price * ud.balance * ${tsKf}) AS INTEGER) points
+              FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
             FROM 
               user_data ud
             LEFT JOIN 
@@ -452,7 +452,7 @@ program
             INSERT OR IGNORE INTO user_points_public
                 (address, asset_id, points, "change", prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
             SELECT 
-              r.referrer address,
+              COALESCE(als.address, r.referrer) address,
                CASE 
                 WHEN INSTR(s.asset_id, '_') > 0 
                 THEN SUBSTR(s.asset_id, 1, INSTR(s.asset_id, '_') - 1) 
@@ -460,12 +460,13 @@ program
               0 points,
               0 change,
               0 prev_points_l1,
-                0 prev_points_l2,
-                0 points_l1,
-                0 points_l2,
-                0 place,
-                0 prev_place
+              0 prev_points_l2,
+              0 points_l1,
+              0 points_l2,
+              0 place,
+              0 prev_place
             FROM referrals r
+            LEFT JOIN aliases als ON (als.alias = r.referrer)
             LEFT JOIN schedule s
             GROUP BY address;
             `,
@@ -481,25 +482,27 @@ program
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
               SELECT 
-                CAST(SUM(upp1.change) * ${config.l1_percent / 100} AS INTEGER)
+                FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
               FROM 
                 referrals r
+              LEFT JOIN aliases als ON (als.alias = r.referrer)
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
-              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
+              LEFT JOIN user_kyc k ON (k.address = COALESCE(als.address, r.referrer) AND k.ts <= $ts)
               WHERE
-                r.referrer = user_points_public.address AND
+                COALESCE(als.address, r.referrer) = user_points_public.address AND
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
               SELECT 
-                CAST(SUM(upp2.change) * ${config.l2_percent / 100} AS INTEGER)
+                FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
               FROM 
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
+              LEFT JOIN aliases als ON (als.alias = r2.referrer)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= $ts)
-              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= $ts)
+              LEFT JOIN user_kyc k2 ON (k2.address = COALESCE(als.address, r2.referrer) AND k2.ts <= $ts)
               WHERE
-                r2.referrer = user_points_public.address AND
+                COALESCE(als.address, r2.referrer) = user_points_public.address AND
                 k2.address IS NOT NULL
             ),0)
           `,
@@ -520,25 +523,27 @@ program
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
               SELECT 
-                CAST(SUM(upp1.change) * ${config.l1_percent / 100} AS INTEGER)
+                FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
               FROM 
                 referrals r
+              LEFT JOIN aliases als ON (als.alias = r.referrer)
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.height <= ${batchHeight})
-              LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
+              LEFT JOIN user_kyc k ON (k.address = COALESCE(als.address, r.referrer) AND k.ts <= $ts)
               WHERE
-                r.referrer = user_points_public.address AND
+                COALESCE(als.address, r.referrer) = user_points_public.address AND
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
               SELECT 
-                CAST(SUM(upp2.change) * ${config.l2_percent / 100} AS INTEGER)
+                FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
               FROM 
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.height <= ${batchHeight})
+              LEFT JOIN aliases als ON (als.alias = r2.referrer)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.height <= ${batchHeight})
-              LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= $ts)
+              LEFT JOIN user_kyc k2 ON (k2.address = COALESCE(als.address, r2.referrer) AND k2.ts <= $ts)
               WHERE
-                r2.referrer = user_points_public.address AND
+                COALESCE(als.address, r2.referrer) = user_points_public.address AND
                 k2.address IS NOT NULL
             ),0)
           `,

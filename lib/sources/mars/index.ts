@@ -40,10 +40,7 @@ export default class MarsSource implements SourceInterface {
     }
     this.assets = params.assets;
 
-    if (!params.recalculate) {
-      throw new Error('No recalculation flag configured');
-    }
-    this.recalculate = params.recalculate;
+    this.recalculate = params.recalculate || false;
 
     if (!params.nft_contract) {
       throw new Error('No mars nft contract configured in params');

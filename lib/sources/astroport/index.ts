@@ -43,10 +43,7 @@ export default class AstroportSource implements SourceInterface {
     }
     this.assets = params.assets;
 
-    if (!params.recalculate) {
-      throw new Error('No recalculation flag configured');
-    }
-    this.recalculate = params.recalculate;
+    this.recalculate = params.recalculate || false;
 
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
