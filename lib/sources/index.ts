@@ -9,6 +9,7 @@ import OsmosisLPSource from './osmosis-lp';
 import NolusSource from './nolus';
 import DemexSource from './demex';
 import PryzmSource from './pryzm';
+import AmuletSource from './amulet';
 
 const out = {
   neutron: BankModuleSource,
@@ -24,5 +25,6 @@ const out = {
   demex: DemexSource,
   pryzm: PryzmSource,
   'osmosis-lp': OsmosisLPSource,
+  'neutron-amulet': AmuletSource,
 };
 export default out;

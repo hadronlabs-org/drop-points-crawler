@@ -334,6 +334,19 @@ multiplier = 10
 denom = "udatom"
 type = "staked"
 
+
+[protocols.neutron-amulet]
+rpc = "https://rpc-palvus.pion-1.ntrn.tech:443"
+source = "neutron-amulet"
+jitter = 10
+pagination_limit = 50
+
+[protocols.neutron-amulet.assets.dATOM]
+multiplier = 10
+denom = "factory/neutron1a5epmyzkd0xp4kt76azydpq5nu0jv3eelqcf9yfhy8g30sz9am2qu4x0l4/udatom"
+vault = "neutron1nyn3l3s2fyl39f2tx4yq0m9nkjcmv80vcqf7g3fa23dpe3v5kcds7l8sfy"
+hub = "neutron1dnus6warzk3duxq7l9tjrtcx9zksyv2sgl53cdqerh3acza5778qzqcyd7"
+
 [on_chain_storage]
 batch_size = 5000
 rpc = "https://rpc-falcron.pion-1.ntrn.tech:443"
