@@ -822,4 +822,37 @@ kycCli
     }
   });
 
+const debugCli = program.command('debug').description('Debug commands');
+debugCli
+  .command('mars')
+  .command('crawl')
+  .argument('<batch_id>', 'Batch ID')
+  .argument('<account>', 'Account ID')
+  .action(async (batchId, account) => {
+    logger.level = 'trace';
+    const task = db
+      .query<
+        { height: number },
+        [string, string]
+      >('SELECT height FROM tasks WHERE batch_id = ? AND protocol_id = ?')
+      .get(batchId, 'neutron-mars');
+    if (!task) {
+      logger.error('Task not found');
+      return;
+    }
+    logger.debug('Task height: %d', task.height);
+    const multipliers = getAssetMulsByProtocolAndBatchId(
+      'neutron-mars',
+      batchId,
+    );
+    logger.debug('Multipliers: %o', multipliers);
+    const source = new sources['mars'](
+      config.protocols['neutron-mars'].rpc,
+      logger,
+      config.protocols['neutron-mars'],
+    );
+    const out = await source.debugOneAccount(task.height, multipliers, account);
+    logger.debug('Account %s: %o', account, out);
+  });
+
 program.parse(process.argv);
