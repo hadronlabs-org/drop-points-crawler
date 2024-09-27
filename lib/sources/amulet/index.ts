@@ -1,19 +1,16 @@
 import BankModuleSource from '../bank-module';
 
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
-import { queryContractOnHeight } from '../../query';
+import { getContractStateKeys, queryContractOnHeight } from '../../query';
 
-type AssetsRecord = Record<
-  string,
-  { denom: string; vault: string; hub: string }
->;
+type AssetsRecord = Record<string, { cap: string; vault: string; hub: string }>;
 export default class AmuletSource extends BankModuleSource<AssetsRecord> {
-  async getUserDebt(
+  async getUserPosition(
     hub: string,
     vault: string,
     address: string,
     height: number,
-  ): Promise<number> {
+  ): Promise<string | null> {
     this.logger.debug(
       'AmuletSource getUserDebt %s %s %s',
       vault,
@@ -33,46 +30,75 @@ export default class AmuletSource extends BankModuleSource<AssetsRecord> {
       },
     });
     this.logger.debug('AmuletSource getUserDebt %o', JSON.stringify(res));
-    return parseInt(res.debt);
+    return parseInt(res.debt) > 0 ? res.collateral : null;
   }
+
+  getAccounts = async (
+    capContract: string,
+    vaultContract: string,
+    height: number,
+  ): Promise<string[]> => {
+    let nextKey: Uint8Array | undefined = undefined;
+    const users: string[] = [];
+    while (true) {
+      const out = await getContractStateKeys(
+        await this.getClient(),
+        height,
+        capContract,
+        nextKey,
+      );
+      nextKey = out.pagination?.nextKey;
+      this.logger.debug('Next key: %s', nextKey);
+      const accounts = out.models
+        .map((x) => Buffer.from(x.key).toString())
+        .filter((x) =>
+          x.startsWith(
+            'deposit_cap::individual_deposit_amount' + vaultContract,
+          ),
+        )
+        .map((x) => x.replace(/.*(neutron[0-9a-z]+):$/gi, '$1'));
+
+      users.push(...accounts);
+      this.logger.info('Found %d accounts', accounts.length);
+      if (!nextKey?.length) {
+        this.logger.info('No more keys, breaking');
+        break;
+      }
+    }
+    return users;
+  };
 
   getUsersBalances = async (
     height: number,
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    this.logger.debug('AmuletSource getUsersBalances');
+    this.logger.debug('AmuletSource getUsersBalances %d', height);
     for (const [assetId, asset] of Object.entries(this.assets)) {
-      this.logger.debug('PryzmSource getUsersBalances asset %s', assetId);
-      let nextKey: undefined | Uint8Array = undefined;
-      do {
-        // result in vault tokens balances
-        const { results, nextKey: newNextKey } = await this.getDenomBalances(
-          { denom: asset.denom },
-          multipliers[assetId] || 1,
+      this.logger.debug('AmuletSource getUsersBalances asset %s', assetId);
+      const users = await this.getAccounts(asset.cap, asset.vault, height);
+      this.logger.trace('AmuletSource getUsersBalances users %o', users);
+      const toInsert = [];
+      for (const address of users) {
+        const balance = await this.getUserPosition(
+          asset.hub,
+          asset.vault,
+          address,
           height,
-          nextKey,
         );
-        this.logger.debug('Got next key %s', newNextKey);
-        const toInsert = [];
-        for (const [address, balance] of Object.entries(results)) {
-          //   cb(address, assetId, balance);
-          const debt = await this.getUserDebt(
-            asset.hub,
-            asset.vault,
+        if (balance) {
+          toInsert.push({
             address,
-            height,
-          );
-          if (debt > 0) {
-            toInsert.push({ address, asset: assetId, balance });
-          }
+            asset: assetId,
+            balance: (
+              (BigInt(balance) *
+                BigInt(Math.round(multipliers[assetId] * 10000))) /
+              BigInt(10000)
+            ).toString(),
+          });
         }
-        cb(toInsert);
-        if (!newNextKey) {
-          break;
-        }
-        nextKey = newNextKey;
-      } while (nextKey !== undefined && nextKey.length > 0);
+      }
+      cb(toInsert);
     }
   };
 }
