@@ -69,12 +69,13 @@ const getContractStateKeys = async (
   height: number,
   address: string,
   key: Uint8Array | undefined,
+  limit: number = 100,
 ) => {
   const path = '/cosmwasm.wasm.v1.Query/AllContractState';
   const request = {
     address,
     pagination: {
-      limit: BigInt(100),
+      limit: BigInt(limit),
       key,
     },
   };
