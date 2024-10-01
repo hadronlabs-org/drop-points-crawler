@@ -64,7 +64,7 @@ async function main() {
   >('SELECT * FROM batches');
   const batches = batchesQuery.all(null);
 
-  const createChangesQuery = `CREATE TABLE IF NOT EXISTS changes (address TEXT, batch_id TEXT, points INTEGER, points_l1 INTEGER, points_l2 INTEGER, PRIMARY KEY(address, batch_id DESC));`;
+  const createChangesQuery = `CREATE TABLE IF NOT EXISTS changes (address TEXT, batch_id TEXT, points INTEGER, points_l1 INTEGER, points_l2 INTEGER, reason TEXT, PRIMARY KEY(address, batch_id DESC));`;
   oldDb.exec(createChangesQuery);
   newDb.exec(createChangesQuery);
 
@@ -72,12 +72,13 @@ async function main() {
   oldDb.exec(clearChangesQuery);
   newDb.exec(clearChangesQuery);
 
-  const changesLines = await parseCsv(CHANGES_FILE, ',', 5);
+  const changesLines = await parseCsv(CHANGES_FILE, ',', 6);
   changesLines.forEach((line) => {
-    const [address, batchId, points, points_l1, points_l2] = line.split(',');
+    const [address, batchId, points, points_l1, points_l2, reason] =
+      line.split(',');
     const insertChangeQuery = `
-          INSERT INTO changes (address, batch_id, points, points_l1, points_l2)
-          VALUES ('${address}', '${batchId}', ${points}, ${points_l1}, ${points_l2})
+          INSERT INTO changes (address, batch_id, points, points_l1, points_l2, reason)
+          VALUES ('${address}', '${batchId}', ${points}, ${points_l1}, ${points_l2}, ${reason})
           ON CONFLICT (address, batch_id) DO UPDATE SET
             points = changes.points + excluded.points,
             points_l1 = changes.points_l1 + excluded.points_l1,
