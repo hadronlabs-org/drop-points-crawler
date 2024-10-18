@@ -822,4 +822,52 @@ kycCli
     }
   });
 
+const debugCli = program.command('debug').description('Debug commands');
+debugCli
+  .command('crawl')
+  .description('Get user data on the defined source and batch id')
+  .argument('<protocol_id>', 'Protocol id')
+  .argument('<batch_id>', 'Batch id')
+  .argument('<user_address>', 'User address on any chain')
+  .action(async (protocolId, batchId, userAddress) => {
+    // Get the batch ID and height of the task
+    logger.level = 'info';
+    const row = db
+      .query<
+        { height: number; ts: number },
+        [number, string]
+      >('SELECT height, ts FROM tasks WHERE batch_id = ? AND protocol_id = ? ORDER BY batch_id ASC LIMIT 1')
+      .get(batchId, protocolId);
+    if (!row) {
+      logger.info('No tasks found for batch_id %s', batchId);
+      throw new Error('No tasks found');
+    }
+    const height = row.height;
+    const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
+    logger.info(
+      'Getting data for protocol %s, height %d and batch_id %d multipliers %o and user %s',
+      protocolId,
+      height,
+      batchId,
+      multipliers,
+      userAddress,
+    );
+    // Processing the source
+    const sourceObj = new sources[
+      config.protocols[protocolId].source as keyof typeof sources
+    ](config.protocols[protocolId].rpc, logger, config.protocols[protocolId]);
+    const matchAddress = toNeutronAddress(userAddress);
+    await sourceObj.getUsersBalances(
+      height,
+      multipliers,
+      (balances: UserBalance[]) => {
+        for (const balance of balances) {
+          if (toNeutronAddress(balance.address) === matchAddress) {
+            logger.info('User balance: %o', balance);
+          }
+        }
+      },
+    );
+  });
+
 program.parse(process.argv);
