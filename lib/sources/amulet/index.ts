@@ -3,7 +3,7 @@ import BankModuleSource from '../bank-module';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { getContractStateKeys, queryContractOnHeight } from '../../query';
 
-type AssetsRecord = Record<string, { cap: string; vault: string; hub: string }>;
+type AssetsRecord = { cap: string; vault: string; hub: string };
 export default class AmuletSource extends BankModuleSource<AssetsRecord> {
   async getUserPosition(
     hub: string,

@@ -17,10 +17,12 @@ import {
 import { UserStakeState } from './pryzmjs/pryzm/ystaking/v1/user_stake_state';
 
 type AssetType = 'lp' | 'plain' | 'staked' | 'masked';
-type AssetsRecord = Record<
-  string,
-  { denom: string; lp?: boolean; base_denom?: string; type: AssetType }
->;
+type AssetsRecord = {
+  denom: string;
+  lp?: boolean;
+  base_denom?: string;
+  type: AssetType;
+};
 export default class PryzmSource extends BankModuleSource<AssetsRecord> {
   getAllDelegations = async (height: number): Promise<UserStakeState[]> => {
     const path = '/pryzm.ystaking.v1.Query/UserStakeStateAll';

@@ -91,11 +91,11 @@ export default class DemexSource implements SourceInterface {
         if (!supplied) {
           continue;
         }
+
+        const borrowed = entry.borrowed.filter((o) => o.amount > 0).length > 0;
         const balance =
           supplied.amount *
-          (entry.borrowed.filter((o) => o.amount > 0).length > 0
-            ? multiplier
-            : 1) *
+          (borrowed || asset.includes('_') ? multiplier : 1) *
           1_000_000;
         if (balance > 0) {
           out.push({
