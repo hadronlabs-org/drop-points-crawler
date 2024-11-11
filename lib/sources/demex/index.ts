@@ -2,11 +2,13 @@ import { Logger } from 'pino';
 import { SourceInterface } from '../../../types/sources/source';
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
+import { RECALCULATE } from '../../../constants';
 
 type DemexCoin = { denom: string; amount: number };
 
 export default class DemexSource implements SourceInterface {
   rpc: string;
+  recalculate: boolean;
   insightsApi: string;
   logger: Logger<never>;
   assets: Record<string, { denom: string }> = {};
@@ -25,6 +27,7 @@ export default class DemexSource implements SourceInterface {
       throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
+    this.recalculate = params.recalculate || false;
     this.rpc = rpc;
     this.insightsApi = params.insights_api;
     logger.info('Demex source initialized');
@@ -93,10 +96,17 @@ export default class DemexSource implements SourceInterface {
         }
 
         const borrowed = entry.borrowed.filter((o) => o.amount > 0).length > 0;
-        const balance =
-          supplied.amount *
-          (borrowed || asset.includes('_') ? multiplier : 1) *
-          1_000_000;
+        let finMultiplier = borrowed || asset.includes('_') ? multiplier : 1;
+        if (
+          this.recalculate &&
+          height < RECALCULATE.FIRST_ASTROPORT_CORRECT_EXCHANGE_RATE_HEIGHT
+        ) {
+          finMultiplier =
+            entry.borrowed.filter((o) => o.amount > 0).length > 0
+              ? multiplier
+              : 1;
+        }
+        const balance = supplied.amount * finMultiplier * 1_000_000;
         if (balance > 0) {
           out.push({
             address,
