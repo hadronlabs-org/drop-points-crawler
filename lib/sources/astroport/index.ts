@@ -11,9 +11,11 @@ import {
   QuerySupplyOfResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
+import { RECALCULATE } from '../../../constants';
 
 export default class AstroportSource implements SourceInterface {
   rpc: string;
+  recalculate: boolean;
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
@@ -40,6 +42,8 @@ export default class AstroportSource implements SourceInterface {
       throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
+
+    this.recalculate = params.recalculate || false;
 
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
@@ -205,9 +209,14 @@ export default class AstroportSource implements SourceInterface {
       this.logger.debug(`Exchange rate ${exchangeRate}`);
       let nextKey: undefined | Uint8Array = undefined;
       do {
+        const multiplier =
+          this.recalculate &&
+          height < RECALCULATE.FIRST_ASTROPORT_CORRECT_EXCHANGE_RATE_HEIGHT
+            ? multipliers[assetId] || 1
+            : (multipliers[assetId] || 1) * exchangeRate;
         const { results, nextKey: newNextKey } = await this.getDenomBalances(
           lpToken,
-          (multipliers[assetId] || 1) * exchangeRate,
+          multiplier,
           height,
           nextKey,
         );
