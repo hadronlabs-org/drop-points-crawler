@@ -64,7 +64,7 @@ if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
 const logger = getLogger(config);
-const db = connect(true, config, logger);
+const db = await connect(true, config, logger);
 
 const appRouter = router({
   getDroplets: publicProcedure
@@ -106,7 +106,7 @@ const appRouter = router({
 
 const port = Number(process.env.PORT) || 3000;
 
-const register = getRegistry(config, db);
+const register = getRegistry(config, db, logger);
 
 expressApp.get('/metrics', async (req, res, next) => {
   res.setHeader('Content-type', register.contentType);

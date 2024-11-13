@@ -1,15 +1,15 @@
 import { TRPCError } from '@trpc/server';
+import { Client } from 'pg';
 
 import {
   tRPCGetDropletsRequest,
   tRPCGetDropletsResponse,
 } from '../../../types/tRPC/tRPCGetDroplets';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 
 const getDroplets =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetDropletsRequest): tRPCGetDropletsResponse => {
+  (db: Client, logger: Logger) =>
+  async (req: tRPCGetDropletsRequest): Promise<tRPCGetDropletsResponse> => {
     const {
       input: { address },
     } = req;
@@ -18,12 +18,11 @@ const getDroplets =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { points: number; change: number; place: number },
-          [string]
-        >('SELECT points + points_l1 + points_l2 as points, change, place FROM user_points_public WHERE address = ? LIMIT 1')
-        .get(address);
+      const result = await db.query(
+        'SELECT points + points_l1 + points_l2 as points, change, place FROM user_points_public WHERE address = $1 LIMIT 1',
+        [address],
+      );
+      row = result.rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching points: %s',
@@ -49,12 +48,10 @@ const getDroplets =
 
     let countResult;
     try {
-      countResult = db
-        .query<
-          { total: number },
-          []
-        >('SELECT count(*) as total FROM user_points_public')
-        .get();
+      const countRes = await db.query(
+        'SELECT count(*) as total FROM user_points_public',
+      );
+      countResult = countRes.rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching total: %s',
