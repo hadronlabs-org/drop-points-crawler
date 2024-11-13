@@ -1,9 +1,11 @@
-import type Database from 'bun:sqlite';
+import type { Client } from 'pg';
+import { Logger } from 'pino';
 import * as client from 'prom-client';
 
 export const getRegistry = (
   config: any,
-  db: Database,
+  db: Client,
+  logger: Logger,
 ): client.Registry<'text/plain; version=0.0.4; charset=utf-8'> => {
   const register = new client.Registry();
 
@@ -18,27 +20,38 @@ export const getRegistry = (
           name: field,
           help: `${field} value for an address`,
           labelNames: ['address', 'label'],
-          collect() {
-            const data = db
-              .query<
-                {
-                  points: string;
-                  address: string;
-                },
-                null
-              >(
-                `SELECT ${field} points, address FROM user_points_public WHERE address IN ('${config.watched_addresses.map((v: any) => v.address).join("','")}')`,
-              )
-              .all(null);
-            data.forEach((row) => {
-              const label = config.watched_addresses.find(
-                (v: any) => v.address === row.address,
-              )?.label;
-              this.set({ address: row.address, label }, parseFloat(row.points));
-            });
+          async collect() {
+            try {
+              const watchedAddresses = config.watched_addresses.map(
+                (v: any) => v.address,
+              );
+              const placeholders = watchedAddresses
+                .map((_: any, index: number) => `$${index + 1}`)
+                .join(', ');
+
+              const { rows } = await db.query(
+                `SELECT ${field} as points, address 
+                 FROM user_points_public 
+                 WHERE address IN (${placeholders})`,
+                watchedAddresses,
+              );
+
+              rows.forEach((row: { address: any; points: string }) => {
+                const label = config.watched_addresses.find(
+                  (v: any) => v.address === row.address,
+                )?.label;
+                this.set(
+                  { address: row.address, label },
+                  parseFloat(row.points),
+                );
+              });
+            } catch (e) {
+              logger.error('Error fetching points data:', e);
+            }
           },
         }),
     );
+
     for (const gauge of gauges) {
       register.registerMetric(gauge);
     }

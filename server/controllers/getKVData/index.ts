@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
+import { Client } from 'pg';
 
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 import {
   tRPCGetKVDataRequest,
@@ -8,8 +8,8 @@ import {
 } from '../../../types/tRPC/tRPCGetKVData';
 
 const getKVData =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetKVDataRequest): tRPCGetKVDataResponse => {
+  (db: Client, logger: Logger) =>
+  async (req: tRPCGetKVDataRequest): Promise<tRPCGetKVDataResponse> => {
     const {
       input: { key },
     } = req;
@@ -18,12 +18,11 @@ const getKVData =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { value: string },
-          [string]
-        >('SELECT value FROM kvstore WHERE key = ?')
-        .get(key);
+      const result = await db.query(
+        'SELECT value FROM kvstore WHERE key = $1',
+        [key],
+      );
+      row = result.rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while querying kv : %s',

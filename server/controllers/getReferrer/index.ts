@@ -1,15 +1,15 @@
 import { TRPCError } from '@trpc/server';
+import { Client } from 'pg';
 
 import {
   tRPCGetReferrerRequest,
   tRPCGetReferrerResponse,
 } from '../../../types/tRPC/tRPCGetReferrer';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 
 const getReferrer =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetReferrerRequest): tRPCGetReferrerResponse => {
+  (db: Client, logger: Logger) =>
+  async (req: tRPCGetReferrerRequest): Promise<tRPCGetReferrerResponse> => {
     const {
       input: { referralCode },
     } = req;
@@ -21,12 +21,11 @@ const getReferrer =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { address: string },
-          [string]
-        >('SELECT address FROM user_kyc WHERE referral_code = ? LIMIT 1')
-        .get(referralCode);
+      const { rows } = await db.query(
+        'SELECT address FROM user_kyc WHERE referral_code = $1 LIMIT 1',
+        [referralCode],
+      );
+      row = rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching a referrer address: %s',
@@ -55,7 +54,7 @@ const getReferrer =
       referralCode,
     );
 
-    return row;
+    return { address: row.address };
   };
 
 export { getReferrer };
