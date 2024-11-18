@@ -10,6 +10,8 @@ import NolusSource from './nolus';
 import DemexSource from './demex';
 import PryzmSource from './pryzm';
 import AmuletSource from './amulet';
+import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
+import LiquidityAllianceSource from './liquidity-alliance';
 
 const out = {
   neutron: BankModuleSource,
@@ -26,5 +28,7 @@ const out = {
   pryzm: PryzmSource,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,
+  'liquidity-alliance': LiquidityAllianceSource,
+  'liquidity-alliance-compounder': LiquidityAllianceCompounderSource,
 };
 export default out;
