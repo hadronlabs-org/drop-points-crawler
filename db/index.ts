@@ -18,10 +18,11 @@ export const connect = async (
   const db = new Client({
     host: 'localhost',
     port: 5432,
-    database: 'your_database',
-    user: 'your_username',
-    password: 'your_password',
+    database: 'crawler',
+    user: 'admin',
+    password: 'password',
   });
+
   await db.connect();
   await db.query(`SET lock_timeout = '5s'`);
 
@@ -40,7 +41,7 @@ export const connect = async (
         batch_id INTEGER REFERENCES batches(batch_id),
         price NUMERIC,
         ts INTEGER,
-        PRIMARY KEY (batch_id DESC, asset_id)
+        PRIMARY KEY (batch_id, asset_id)
       );
 
       CREATE TABLE IF NOT EXISTS tasks (
@@ -50,7 +51,7 @@ export const connect = async (
         status TEXT,
         jitter NUMERIC,
         ts INTEGER,
-        PRIMARY KEY (batch_id DESC, protocol_id)
+        PRIMARY KEY (batch_id, protocol_id)
       );
 
       CREATE TABLE IF NOT EXISTS user_data (
@@ -60,7 +61,7 @@ export const connect = async (
         height INTEGER,
         asset TEXT,
         balance NUMERIC,
-        PRIMARY KEY (batch_id DESC, address, protocol_id, asset)
+        PRIMARY KEY (batch_id, address, protocol_id, asset)
       );
 
       CREATE TABLE IF NOT EXISTS user_kyc (
@@ -84,7 +85,7 @@ export const connect = async (
         address TEXT,
         asset_id TEXT,
         points NUMERIC,
-        PRIMARY KEY (batch_id DESC, address, asset_id)
+        PRIMARY KEY (batch_id, address, asset_id)
       );
 
       CREATE TABLE IF NOT EXISTS user_points_public (
@@ -106,8 +107,8 @@ export const connect = async (
         protocol_id TEXT,
         asset_id TEXT,
         multiplier REAL,
-        start INTEGER,
-        end INTEGER,
+        start_time INTEGER,
+        end_time INTEGER,
         enabled BOOLEAN
       );
 
@@ -154,7 +155,7 @@ export const connect = async (
           const assetObject = asset as any;
 
           await db.query(
-            `INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled)
+            `INSERT INTO schedule (protocol_id, asset_id, multiplier, start_time, end_time, enabled)
             VALUES ($1, $2, $3, $4, $5, $6)`,
             [protocol_id, asset_id, assetObject.multiplier, 0, 0, true],
           );
@@ -212,5 +213,6 @@ export const connect = async (
       }
     }
   }
+
   return db;
 };

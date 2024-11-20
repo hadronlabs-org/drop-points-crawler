@@ -5,9 +5,9 @@ import { Guid } from 'guid-typescript';
 const client = new Client({
   host: 'localhost',
   port: 5432,
-  database: 'your_database',
-  user: 'your_username',
-  password: 'your_password',
+  database: 'crawler',
+  user: 'admin',
+  password: 'password',
 });
 
 const test = async () => {

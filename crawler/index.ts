@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Command } from 'commander';
+import { Client } from 'pg';
 import { connect } from '../db';
 import { getLogger } from '../lib/logger';
 import sources from '../lib/sources';
@@ -31,9 +32,9 @@ if (!config.log_level) {
 validateOnChainContractInfo(config);
 
 const logger = getLogger(config);
-const db = await connect(true, config, logger);
 
 const getAssetMulsByProtocolAndBatchId = async (
+  db: Client,
   protocolId: string,
   batchId: number,
 ) => {
@@ -43,24 +44,18 @@ const getAssetMulsByProtocolAndBatchId = async (
       SELECT ts FROM batches WHERE batch_id = $1
     )
     SELECT 
-      protocol_id, asset_id, multiplier
-    FROM
-    (
-      SELECT * FROM 
-        (
-          SELECT 
-            * 
-          FROM schedule s
-          LEFT JOIN 
-            batches bt ON (bt.ts > s.start AND bt.ts < s.end)
-          WHERE 
-            protocol_id = $2 AND
-            ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
-          ORDER BY protocol_id, schedule_id DESC
-        ) a 
-      GROUP BY a.protocol_id, a.asset_id
-    ) b
-    WHERE b.enabled = true;
+      s.protocol_id, 
+      s.asset_id, 
+      s.multiplier
+    FROM schedule s
+    LEFT JOIN batches bt 
+      ON bt.ts > s.start_time AND bt.ts < s.end_time
+    WHERE 
+      s.protocol_id = $2 AND
+      ((s.start_time = 0 AND s.end_time = 0) OR bt.ts IS NOT NULL)
+      AND s.enabled = true
+    GROUP BY s.protocol_id, s.asset_id, s.multiplier, s.enabled
+    ORDER BY s.protocol_id DESC;
     `,
     [batchId, protocolId],
   );
@@ -94,20 +89,17 @@ program
         `
         SELECT 
           protocol_id, asset_id, multiplier
-        FROM
-        (
-          SELECT * FROM 
-            (
-                SELECT 
-                  * 
-                FROM schedule s
-                WHERE 
-                  ((s.start = 0 AND s.end = 0) OR (s.start < $1 AND s.end > $2))
-                ORDER BY protocol_id, schedule_id DESC
-          ) a GROUP BY a.protocol_id
-        ) b
-        WHERE b.enabled = 1`,
-        [ts, ts],
+        FROM (
+          SELECT 
+            protocol_id, asset_id, multiplier, enabled
+          FROM schedule s
+          WHERE 
+            ((s.start_time = 0 AND s.end_time = 0) OR (s.start < $1 AND s.end > $2))
+          ORDER BY protocol_id, schedule_id DESC
+        ) AS subquery
+        WHERE enabled = true
+        GROUP BY protocol_id, asset_id, multiplier, enabled
+        `,
       );
       if (!protocolsInDb.length) {
         logger.info('No protocols found in the schedule');
@@ -132,16 +124,22 @@ program
       logger.info('Inserted batch %d', batchId);
 
       const assetsToGetPrice = new Set<string>();
+      const protocolIds = new Set<string>();
       const timeShift = // same for all protocols bc of IBC and stuff
         config.random && config.random === 'pseudo'
           ? getPseudoRandom(batchId)
           : getTrueRandom();
 
       for (const protocol of protocolsInDb) {
+        if (protocolIds.has(protocol.protocol_id)) {
+          continue;
+        }
+        protocolIds.add(protocol.protocol_id);
+
         const protocolObj = config.protocols[protocol.protocol_id];
 
         for (const assetId of Object.keys(protocolObj.assets)) {
-          assetsToGetPrice.add(assetId);
+          assetsToGetPrice.add(assetId.split('_')[0]);
         }
 
         const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
@@ -192,9 +190,10 @@ program
       logger.info('Transaction committed successfully');
     } catch (error) {
       await db.query('ROLLBACK');
-      logger.error('Transaction rolled back due to error:', error);
+      logger.error('Transaction rolled back due to error: %s', error);
     } finally {
       logger.info('Operation finished');
+      await db.end();
     }
   });
 
@@ -204,6 +203,8 @@ program
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
+    const db = await connect(false, config, logger);
+
     // Get the batch ID and height of the task
     const { batchId, height } = await (async () => {
       if (options.batch_id) {
@@ -238,6 +239,7 @@ program
     })();
 
     const multipliers = await getAssetMulsByProtocolAndBatchId(
+      db,
       protocolId,
       batchId,
     );
@@ -258,16 +260,18 @@ program
       height,
       multipliers,
       async (balances: UserBalance[]) => {
+        const callbackDbClient = await connect(false, config, logger);
+
         const insertUserDataQuery = `
           INSERT INTO user_data (batch_id, address, protocol_id, height, asset, balance)
           VALUES ($1, $2, $3, $4, $5, $6)
         `;
 
-        await db.query('BEGIN');
+        await callbackDbClient.query('BEGIN');
 
         try {
           for (const balance of balances) {
-            await db.query(insertUserDataQuery, [
+            await callbackDbClient.query(insertUserDataQuery, [
               batchId,
               toNeutronAddress(balance.address),
               protocolId,
@@ -277,12 +281,14 @@ program
             ]);
           }
 
-          await db.query('COMMIT');
+          await callbackDbClient.query('COMMIT');
           logger.info('Inserted %d user balances', balances.length);
         } catch (err) {
-          await db.query('ROLLBACK');
+          await callbackDbClient.query('ROLLBACK');
           logger.error('Error inserting user balances:', err);
         }
+
+        await callbackDbClient.end();
       },
     );
 
@@ -292,6 +298,7 @@ program
       ['ready', protocolId, batchId],
     );
 
+    await db.end();
     logger.info('Task has been processed');
   });
 
@@ -301,6 +308,8 @@ program
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
   .action(async (options) => {
+    const db = await connect(false, config, logger);
+
     const batchId = await (async () => {
       if (options.batch_id === undefined) {
         const { rows } = await db.query<{ batch_id: number }>(
@@ -333,12 +342,13 @@ program
     logger.info('Finishing task for batch_id %s', batchId);
 
     const { rows: cntRows } = await db.query<{ cnt: number }>(
-      'SELECT count(*) as cnt FROM tasks WHERE batch_id = $1 AND status <> $2',
+      'SELECT count(*)::int as cnt FROM tasks WHERE batch_id = $1 AND status <> $2',
       [batchId, 'ready'],
     );
     const cnt = cntRows[0].cnt;
     if (cnt !== 0) {
       logger.error('Not all tasks are ready');
+      await db.end();
       return;
     }
 
@@ -365,7 +375,10 @@ program
         `
         INSERT INTO user_points (batch_id, address, asset_id, points)
         SELECT 
-          batch_id, address, xasset_id AS asset_id, points
+          x.batch_id, 
+          x.address, 
+          x.xasset_id AS asset_id, 
+          FLOOR(SUM(p.price * x.balance * $1)) AS points
         FROM (
           SELECT 
             ud.batch_id, 
@@ -375,13 +388,14 @@ program
               THEN SUBSTRING(ud.asset FROM 1 FOR POSITION('_' IN ud.asset) - 1) 
               ELSE ud.asset 
             END AS xasset_id, 
-            FLOOR(SUM(p.price * ud.balance * $1)) AS points
+            ud.balance
           FROM user_data ud
-          LEFT JOIN prices p ON p.asset_id = xasset_id AND p.batch_id = ud.batch_id
-          WHERE ud.batch_id = $2
-          AND ud.address NOT IN (SELECT address FROM blacklist)
-          GROUP BY ud.batch_id, ud.address, xasset_id
         ) x
+        LEFT JOIN prices p 
+          ON p.asset_id = x.xasset_id AND p.batch_id = x.batch_id
+        WHERE x.batch_id = $2
+          AND x.address NOT IN (SELECT address FROM blacklist)
+        GROUP BY x.batch_id, x.address, x.xasset_id;
         `,
         [tsKf, batchId],
       );
@@ -442,7 +456,7 @@ program
             0 AS prev_place
           FROM referrals r
           LEFT JOIN schedule s ON true
-          GROUP BY address
+          GROUP BY address, s.asset_id
           ON CONFLICT (address, asset_id) DO NOTHING
           `,
         );
@@ -486,7 +500,7 @@ program
             FROM user_points_public
           )
           UPDATE user_points_public
-          SET prev_place = place,
+          SET prev_place = user_points_public.place,
               place = ranked.place
           FROM ranked
           WHERE ranked.address = user_points_public.address
@@ -503,7 +517,9 @@ program
       logger.info('Task has been finished');
     } catch (error) {
       await db.query('ROLLBACK');
-      logger.error('Transaction rolled back due to error:', error);
+      logger.error('Transaction rolled back due to error: %s', error);
+    } finally {
+      await db.end();
     }
   });
 
@@ -511,6 +527,8 @@ program
   .command('publish_on_chain')
   .description('Publish points to CW20 contract')
   .action(async () => {
+    const db = await connect(false, config, logger);
+
     const { rows: publicPoints } = await db.query(
       'SELECT address, points + points_l1 + points_l2 as points FROM user_points_public',
     );
@@ -541,6 +559,7 @@ program
       );
     }
 
+    await db.end();
     logger.info('Points have been saved to the on chain contract');
   });
 
@@ -560,6 +579,8 @@ scheduleCli
   .option('-f --force')
   .action(
     async (protocolId, assetId, start, end, multiplier, enabled, options) => {
+      const db = await connect(false, config, logger);
+
       const protocolObject = config.protocols[protocolId];
       const assetObject = config.protocols[protocolId].assets[assetId];
 
@@ -606,7 +627,7 @@ scheduleCli
       if (!options.force) {
         // Check if a schedule already exists for this timeframe
         const { rows } = await db.query(
-          'SELECT COUNT(*) as count FROM schedule WHERE protocol_id = $1 AND asset_id = $2 AND start >= $3 AND end <= $4 AND enabled = $5',
+          'SELECT COUNT(*) as count FROM schedule WHERE protocol_id = $1 AND asset_id = $2 AND start_time >= $3 AND end_time <= $4 AND enabled = $5',
           [protocolId, assetId, dateStart, dateEnd, enabledBool],
         );
         if (parseInt(rows[0].count) > 0) {
@@ -619,7 +640,7 @@ scheduleCli
         await db.query('BEGIN');
 
         await db.query(
-          'INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled) VALUES ($1, $2, $3, $4, $5, $6)',
+          'INSERT INTO schedule (protocol_id, asset_id, multiplier, start_time, end_time, enabled) VALUES ($1, $2, $3, $4, $5, $6)',
           [protocolId, assetId, multiplier, dateStart, dateEnd, enabledBool],
         );
         logger.info('Schedule has been inserted');
@@ -668,6 +689,8 @@ scheduleCli
       } catch (error) {
         await db.query('ROLLBACK'); // Rollback transaction on error
         logger.error('Error during transaction, rolling back:', error);
+      } finally {
+        await db.end();
       }
     },
   );
@@ -676,10 +699,12 @@ scheduleCli
   .command('list')
   .description('Display the schedule')
   .action(async () => {
+    const db = await connect(false, config, logger);
+
     logger.info('Schedule list');
 
     const { rows } = await db.query(
-      'SELECT schedule_id, protocol_id, asset_id, multiplier, start, end, enabled FROM schedule ORDER BY protocol_id, asset_id, start, end',
+      'SELECT schedule_id, protocol_id, asset_id, multiplier, start_time, end_time, enabled FROM schedule ORDER BY protocol_id, asset_id, start_time, end_time',
     );
 
     rows.forEach((row) => {
@@ -694,6 +719,8 @@ scheduleCli
         row.enabled ? 'enabled' : 'disabled',
       );
     });
+
+    await db.end();
   });
 
 scheduleCli
@@ -701,6 +728,8 @@ scheduleCli
   .description('Delete a schedule')
   .argument('<schedule_id>', 'Schedule ID')
   .action(async (scheduleId: string) => {
+    const db = await connect(false, config, logger);
+
     logger.info('Deleting schedule');
     const id = parseInt(scheduleId, 10);
     if (isNaN(id)) {
@@ -719,6 +748,7 @@ scheduleCli
 
     await db.query('DELETE FROM schedule WHERE schedule_id = $1', [id]);
 
+    await db.end();
     logger.info('Schedule has been deleted');
   });
 
@@ -732,6 +762,8 @@ referralCli
   .argument('<referral>', 'Address of the referral')
   .description('Add a referral')
   .action(async (referrer, referral) => {
+    const db = await connect(false, config, logger);
+
     logger.info('Adding referral %s -> %s', referrer, referral);
 
     await db.query(
@@ -739,6 +771,7 @@ referralCli
       [referrer, referral],
     );
 
+    await db.end();
     logger.info('Referral has been added');
   });
 
@@ -747,6 +780,8 @@ referralCli
   .argument('<address>', 'Address')
   .description('List referrals')
   .action(async (address) => {
+    const db = await connect(false, config, logger);
+
     logger.info('Referral list');
 
     const { rows } = await db.query(
@@ -761,13 +796,19 @@ referralCli
         logger.info('Referrer: %s\t Referral: %s', row.address, row.referral);
       }
     }
+
+    await db.end();
   });
 
 referralCli
   .command('sync')
   .description('retrieve last Referral data')
   .action(async () => {
+    const db = await connect(false, config, logger);
+
     await updateReferralData(db, config, logger);
+
+    await db.end();
   });
 
 const blacklistCli = program
@@ -779,8 +820,11 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Insert address into blacklist')
   .action(async (address) => {
+    const db = await connect(false, config, logger);
+
     await db.query('INSERT INTO blacklist (address) VALUES ($1)', [address]);
 
+    await db.end();
     logger.info('Inserted %s into blacklist', address);
   });
 
@@ -789,8 +833,11 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Remove address from blacklist')
   .action(async (address) => {
+    const db = await connect(false, config, logger);
+
     await db.query('DELETE FROM blacklist WHERE address = $1', [address]);
 
+    await db.end();
     logger.info('Removed %s from blacklist', address);
   });
 
@@ -802,7 +849,9 @@ kycCli
   .option('-p --provider <provider>', 'KYC provider')
   .option('-i --id <kyc_id>', 'KYC id')
   .option('-c --code <code>', 'Referral code')
-  .action((address, options) => {
+  .action(async (address, options) => {
+    const db = await connect(false, config, logger);
+
     address = neutronAddress.parse(address).toString();
     const kycId = options.id || `local_${address}`;
     const kycProvider = options.provider || 'local';
@@ -821,6 +870,8 @@ kycCli
       kycProvider,
       userCode,
     );
+
+    await db.end();
     logger.info('Referral code: %s', code);
   });
 
@@ -828,6 +879,8 @@ kycCli
   .command('get')
   .argument('<address>', 'Address')
   .action(async (address) => {
+    const db = await connect(false, config, logger);
+
     address = neutronAddress.parse(address).toString();
 
     const { rows } = await db.query(
@@ -846,6 +899,8 @@ kycCli
         new Date(row.ts * 1000).toISOString(), // Convert timestamp to ISO string
       );
     }
+
+    await db.end();
   });
 
 const debugCli = program.command('debug').description('Debug commands');
@@ -856,6 +911,8 @@ debugCli
   .argument('<batch_id>', 'Batch id')
   .argument('<user_address>', 'User address on any chain')
   .action(async (protocolId, batchId, userAddress) => {
+    const db = await connect(false, config, logger);
+
     // Get the batch ID and height of the task
     logger.level = 'info';
 
@@ -871,6 +928,7 @@ debugCli
 
     const height = rows[0].height;
     const multipliers = await getAssetMulsByProtocolAndBatchId(
+      db,
       protocolId,
       batchId,
     );
@@ -901,6 +959,8 @@ debugCli
         }
       },
     );
+
+    await db.end();
   });
 
 program.parse(process.argv);
