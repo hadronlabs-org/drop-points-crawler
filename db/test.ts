@@ -4,9 +4,9 @@ const test = async () => {
   const db = new Client({
     host: 'localhost',
     port: 5432,
-    database: 'your_database',
-    user: 'your_username',
-    password: 'your_password',
+    database: 'crawler',
+    user: 'admin',
+    password: 'password',
   });
 
   await db.connect();
