@@ -74,6 +74,7 @@ program
   .command('prepare')
   .description('Prepare tasks for processing sources')
   .option('-t --timestamp <timestamp>', 'Timestamp to use')
+  .option('-s --simulate', 'Just simulate the task')
   .action(async (options) => {
     const ts = parseInt(
       options.timestamp || (Date.now() / 1000).toString(),
@@ -106,6 +107,10 @@ program
     const protocolsInDb = query.all(ts, ts);
     if (!protocolsInDb.length) {
       logger.info('No protocols found in the schedule');
+      return;
+    }
+    if (options.simulate) {
+      logger.info('Inserting tasks for protocols %o', protocolsInDb);
       return;
     }
     const queryInsertBatch = db.prepare<{ batch_id: number }, [number, string]>(
