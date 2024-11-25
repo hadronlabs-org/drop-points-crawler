@@ -1,11 +1,13 @@
-import { Client } from 'pg';
 import { Logger } from 'pino';
 import { tRPCGetRulesResponse } from '../../../types/tRPC/tRPCGetRules';
 import { TRPCError } from '@trpc/server';
+import { connect } from '../../../db';
 
 const getRules =
-  (db: Client, logger: Logger) => async (): Promise<tRPCGetRulesResponse> => {
+  (config: any, logger: Logger) => async (): Promise<tRPCGetRulesResponse> => {
     logger.debug('Receiving request to get Droplet rules');
+
+    const db = await connect(true, config, logger);
 
     type dbResponse = {
       strategy: string;
@@ -25,11 +27,11 @@ const getRules =
         `SELECT 
          strategy, 
          description, 
-         multiplier AS dropRate, 
+         multiplier AS "dropRate", 
          chain, 
          status, 
          link, 
-         link_text AS linkText, 
+         link_text AS "linkText", 
          type, 
          featured 
        FROM user_points_rules 
@@ -43,6 +45,8 @@ const getRules =
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (rows.length === 0) {

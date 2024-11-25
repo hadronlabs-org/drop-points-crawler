@@ -1,12 +1,13 @@
-import type { Client } from 'pg';
 import { Logger } from 'pino';
 import * as client from 'prom-client';
+import { connect } from '../db';
 
-export const getRegistry = (
+export const getRegistry = async (
   config: any,
-  db: Client,
   logger: Logger,
-): client.Registry<'text/plain; version=0.0.4; charset=utf-8'> => {
+): Promise<client.Registry<'text/plain; version=0.0.4; charset=utf-8'>> => {
+  const db = await connect(true, config, logger);
+
   const register = new client.Registry();
 
   client.collectDefaultMetrics({
@@ -47,6 +48,8 @@ export const getRegistry = (
               });
             } catch (e) {
               logger.error('Error fetching points data:', e);
+            } finally {
+              await db.end();
             }
           },
         }),

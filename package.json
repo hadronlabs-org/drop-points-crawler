@@ -19,6 +19,7 @@
     "@trpc/server": "^10.45.2",
     "@types/lodash": "^4.17.4",
     "@types/pg": "^8.11.10",
+    "@types/seedrandom": "^3.0.8",
     "bech32": "^2.0.0",
     "commander": "^12.0.0",
     "cosmjs-types": "^0.9.0",
