@@ -16,6 +16,7 @@ import { getSigningCosmWasmClient } from '../lib/stargate';
 import { validateOnChainContractInfo } from '../lib/validations/config';
 import { getValidData } from '../types/utils';
 import { dropletRuleSchema } from '../types/config/dropletRule';
+import { getPseudoRandom, getTrueRandom } from './random';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -129,7 +130,11 @@ program
       'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
     );
 
-    const timeShift = Math.random(); //same for all protocols bc of IBC and stuff
+    const timeShift = // same for all protocols bc of IBC and stuff
+      config.random && config.random === 'pseudo'
+        ? await getPseudoRandom(config.protocols['neutron']?.rpc)
+        : getTrueRandom();
+
     for (const protocol of protocolsInDb) {
       const protocolObj = config.protocols[protocol.protocol_id];
 
@@ -137,7 +142,7 @@ program
         assetsToGetPrice.add(assetId);
       }
 
-      const jitter = (protocolObj.jitter * timeShift) | 0;
+      const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
       if (!jitter) {
         logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
       }
