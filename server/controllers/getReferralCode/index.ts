@@ -1,11 +1,11 @@
 import { TRPCError } from '@trpc/server';
-import { Client } from 'pg';
 
 import {
   tRPCGetReferralCodeRequest,
   tRPCGetReferralCodeResponse,
 } from '../../../types/tRPC/tRPCGetReferralCode';
 import { Logger } from 'pino';
+import { connect } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -13,10 +13,12 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 });
 
 const getReferralCode =
-  (db: Client, logger: Logger) =>
+  (config: any, logger: Logger) =>
   async (
     req: tRPCGetReferralCodeRequest,
   ): Promise<tRPCGetReferralCodeResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { address },
     } = req;
@@ -30,9 +32,9 @@ const getReferralCode =
     try {
       const { rows } = await db.query(
         `SELECT 
-           uk.referral_code AS referralCode, 
-           CASE WHEN b.address IS NULL THEN 0 ELSE 1 END AS blacklisted, 
-           CASE WHEN uk.address IS NULL THEN 0 ELSE 1 END AS kycPassed 
+           uk.referral_code AS "referralCode", 
+           CASE WHEN b.address IS NULL THEN 0 ELSE 1 END AS "blacklisted", 
+           CASE WHEN uk.address IS NULL THEN 0 ELSE 1 END AS "kycPassed" 
          FROM 
            (SELECT $1 AS address) f 
          LEFT JOIN blacklist b ON b.address = f.address 
@@ -49,6 +51,8 @@ const getReferralCode =
       );
 
       throw UNEXPECTED_TRPC_ERROR;
+    } finally {
+      await db.end();
     }
 
     if (!row) {
@@ -56,6 +60,7 @@ const getReferralCode =
         'Referral code cannot be fetched for %s from user KYC table',
         address,
       );
+
       throw new TRPCError({
         code: 'UNPROCESSABLE_CONTENT',
         message: 'Failed to fetch data',
@@ -66,6 +71,7 @@ const getReferralCode =
 
     if (blacklisted) {
       logger.error('The address %s is blacklisted', address);
+
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'This address is blacklisted',
@@ -74,6 +80,7 @@ const getReferralCode =
 
     if (!kycPassed) {
       logger.error('KYC is not passed for %s', address);
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'KYC is not passed',
@@ -85,6 +92,7 @@ const getReferralCode =
         'KYC passed for %s but referral code not found in user KYC table',
         address,
       );
+
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'Referral code not found',

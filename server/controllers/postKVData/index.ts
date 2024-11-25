@@ -1,10 +1,10 @@
-import { Client } from 'pg';
 import { Logger } from 'pino';
 import { TRPCError } from '@trpc/server';
 import {
   tRPCPostKVDataRequest,
   tRPCPostKVDataResponse,
 } from '../../../types/tRPC/tRPCPostKVData';
+import { connect } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -12,8 +12,10 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 });
 
 const postKVData =
-  (db: Client, logger: Logger) =>
+  (config: any, logger: Logger) =>
   async (req: tRPCPostKVDataRequest): Promise<tRPCPostKVDataResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { key, value },
     } = req;
@@ -41,6 +43,8 @@ const postKVData =
         (e as Error).message,
       );
       throw UNEXPECTED_TRPC_ERROR;
+    } finally {
+      await db.end();
     }
   };
 

@@ -6,10 +6,13 @@ import {
   tRPCGetKVDataRequest,
   tRPCGetKVDataResponse,
 } from '../../../types/tRPC/tRPCGetKVData';
+import { connect } from '../../../db';
 
 const getKVData =
-  (db: Client, logger: Logger) =>
+  (config: any, logger: Logger) =>
   async (req: tRPCGetKVDataRequest): Promise<tRPCGetKVDataResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { key },
     } = req;
@@ -32,6 +35,8 @@ const getKVData =
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (!row) {

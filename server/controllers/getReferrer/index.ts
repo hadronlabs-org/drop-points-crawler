@@ -1,15 +1,17 @@
 import { TRPCError } from '@trpc/server';
-import { Client } from 'pg';
 
 import {
   tRPCGetReferrerRequest,
   tRPCGetReferrerResponse,
 } from '../../../types/tRPC/tRPCGetReferrer';
 import { Logger } from 'pino';
+import { connect } from '../../../db';
 
 const getReferrer =
-  (db: Client, logger: Logger) =>
+  (config: any, logger: Logger) =>
   async (req: tRPCGetReferrerRequest): Promise<tRPCGetReferrerResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { referralCode },
     } = req;
@@ -32,10 +34,14 @@ const getReferrer =
         (e as Error).message,
       );
 
+      await db.end();
+
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (!row) {
@@ -43,6 +49,7 @@ const getReferrer =
         'Referrer address for code %s not found in user KYC table',
         referralCode,
       );
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'Referrer not found',

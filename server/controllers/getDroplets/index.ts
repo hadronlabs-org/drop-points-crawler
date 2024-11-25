@@ -1,15 +1,17 @@
 import { TRPCError } from '@trpc/server';
-import { Client } from 'pg';
 
 import {
   tRPCGetDropletsRequest,
   tRPCGetDropletsResponse,
 } from '../../../types/tRPC/tRPCGetDroplets';
 import { Logger } from 'pino';
+import { connect } from '../../../db';
 
 const getDroplets =
-  (db: Client, logger: Logger) =>
+  (config: any, logger: Logger) =>
   async (req: tRPCGetDropletsRequest): Promise<tRPCGetDropletsResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { address },
     } = req;
@@ -18,8 +20,12 @@ const getDroplets =
 
     let row = null;
     try {
-      const result = await db.query(
-        'SELECT points + points_l1 + points_l2 as points, change, place FROM user_points_public WHERE address = $1 LIMIT 1',
+      const result = await db.query<{
+        points: number;
+        change: number;
+        place: number;
+      }>(
+        'SELECT (points + points_l1 + points_l2)::int as points, change::int as change, place::int as place FROM user_points_public WHERE address = $1 LIMIT 1',
         [address],
       );
       row = result.rows[0];
@@ -28,6 +34,8 @@ const getDroplets =
         'Unexpected error occurred while fetching points: %s',
         (e as Error).message,
       );
+
+      await db.end();
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
@@ -40,6 +48,9 @@ const getDroplets =
         'Address %s not found in public user points table',
         req.input.address,
       );
+
+      await db.end();
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'Address not found',
@@ -49,7 +60,7 @@ const getDroplets =
     let countResult;
     try {
       const countRes = await db.query(
-        'SELECT count(*) as total FROM user_points_public',
+        'SELECT count(*)::int as total FROM user_points_public',
       );
       countResult = countRes.rows[0];
     } catch (e) {
@@ -62,6 +73,8 @@ const getDroplets =
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (!countResult) {
