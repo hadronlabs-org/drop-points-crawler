@@ -2,7 +2,7 @@ import { Client } from 'pg';
 import { Logger } from 'pino';
 
 import { dropletRuleSchema } from '../types/config/dropletRule';
-import { getValidData } from '../types/utils';
+import { getValidData } from '../lib/validations/config';
 
 export const connect = async (
   createTables = false,
@@ -15,12 +15,14 @@ export const connect = async (
   }
 
   logger.debug('Connecting to database at %s', dbPath);
+
+  const { host, port, database, user, password } = config.postgres;
   const db = new Client({
-    host: 'localhost',
-    port: 5432,
-    database: 'crawler',
-    user: 'admin',
-    password: 'password',
+    host,
+    port,
+    database,
+    user,
+    password,
   });
 
   await db.connect();

@@ -99,4 +99,8 @@ const test = async () => {
 };
 
 // Run the test function
-test().catch(console.error);
+test()
+  .catch(console.error)
+  .finally(async () => {
+    await client.end();
+  });
