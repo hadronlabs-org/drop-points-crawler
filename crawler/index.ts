@@ -14,8 +14,11 @@ import { insertKYCRecord } from '../lib/kyc';
 import { neutronAddress } from '../types/tRPC/neutronAddress';
 import { executeSetBalances } from '../lib/execute';
 import { getSigningCosmWasmClient } from '../lib/stargate';
-import { validateOnChainContractInfo } from '../lib/validations/config';
-import { getValidData } from '../types/utils';
+import {
+  validateOnChainContractInfo,
+  getValidData,
+  validatePostgresInfo,
+} from '../lib/validations/config';
 import { dropletRuleSchema } from '../types/config/dropletRule';
 import { getPseudoRandom, getTrueRandom } from './random';
 
@@ -30,6 +33,7 @@ if (!config.log_level) {
 }
 
 validateOnChainContractInfo(config);
+validatePostgresInfo(config);
 
 const logger = getLogger(config);
 

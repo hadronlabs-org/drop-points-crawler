@@ -34,7 +34,6 @@ import {
   tRPCGetReferralsResponseSchema,
 } from '../types/tRPC/tRPCGetReferrals';
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
-import { connect } from '../db';
 import { Command } from 'commander';
 import { getRegistry } from './prometeus';
 import {
