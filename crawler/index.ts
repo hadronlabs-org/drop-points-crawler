@@ -132,7 +132,7 @@ program
 
     const timeShift = // same for all protocols bc of IBC and stuff
       config.random && config.random === 'pseudo'
-        ? await getPseudoRandom(config.protocols['neutron']?.rpc)
+        ? getPseudoRandom(batchId)
         : getTrueRandom();
 
     for (const protocol of protocolsInDb) {
