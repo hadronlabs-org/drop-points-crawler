@@ -11,3 +11,4 @@ config.toml
 /contracts/artifacts/
 /contracts/.rtx.toml
 /store/*
+.env
