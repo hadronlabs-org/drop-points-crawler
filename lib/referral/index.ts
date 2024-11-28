@@ -1,6 +1,6 @@
 import { Logger } from 'pino';
 import { GraphQLClient, gql } from 'graphql-request';
-import Database from 'bun:sqlite';
+import { Client } from 'pg';
 
 type UserBondsResponse =
   | {
@@ -16,19 +16,18 @@ type UserBondsResponse =
   | undefined;
 
 export const updateReferralData = async (
-  db: Database,
+  db: Client,
   config: any,
   logger: Logger<never>,
 ): Promise<void> => {
   logger.info('Updating KYC data');
-  const height =
-    db
-      .query<
-        { height: number },
-        null
-      >('SELECT COALESCE(MAX(height),0) height FROM referrals')
-      .get(null)?.height || 0;
+
+  const { rows } = await db.query<{ height: number }>(
+    'SELECT COALESCE(MAX(height), 0) AS height FROM referrals',
+  );
+  const height = rows[0]?.height || 0;
   logger.debug('Last Referral data at height %s', height);
+
   const GET_KYC = gql`
     query GetEvents($height: BigFloat!) {
       userBonds(
@@ -56,19 +55,36 @@ export const updateReferralData = async (
     logger.error(e);
     return;
   }
+
   if (!data) {
     logger.error('No data received');
     return;
   }
+
   if (data && data.userBonds.nodes.length === 0) {
     logger.info('No new KYC data');
     return;
   }
+
   for (const one of data.userBonds.nodes) {
     logger.debug('Adding KYC data %o', one);
-    db.exec<[string, string, number, number]>(
-      'INSERT INTO referrals (referrer, referral, height, ts) VALUES (?, ?, ?, ?)',
-      [one.ref, one.id, one.height, (new Date(one.ts).getTime() / 1000) | 0],
-    );
+
+    try {
+      await db.query(
+        'INSERT INTO referrals (referrer, referral, height, ts) VALUES ($1, $2, $3, $4)',
+        [
+          one.ref,
+          one.id,
+          one.height,
+          Math.floor(new Date(one.ts).getTime() / 1000),
+        ],
+      );
+    } catch (error) {
+      logger.error(
+        'Error inserting KYC data for referral %s: %s',
+        one.ref,
+        (error as Error).message,
+      );
+    }
   }
 };

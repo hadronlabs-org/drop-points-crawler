@@ -4,12 +4,14 @@ import {
   tRPCGetReferrerRequest,
   tRPCGetReferrerResponse,
 } from '../../../types/tRPC/tRPCGetReferrer';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
+import { connect } from '../../../db';
 
 const getReferrer =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetReferrerRequest): tRPCGetReferrerResponse => {
+  (config: any, logger: Logger) =>
+  async (req: tRPCGetReferrerRequest): Promise<tRPCGetReferrerResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { referralCode },
     } = req;
@@ -21,22 +23,25 @@ const getReferrer =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { address: string },
-          [string]
-        >('SELECT address FROM user_kyc WHERE referral_code = ? LIMIT 1')
-        .get(referralCode);
+      const { rows } = await db.query(
+        'SELECT address FROM user_kyc WHERE referral_code = $1 LIMIT 1',
+        [referralCode],
+      );
+      row = rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching a referrer address: %s',
         (e as Error).message,
       );
 
+      await db.end();
+
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (!row) {
@@ -44,6 +49,7 @@ const getReferrer =
         'Referrer address for code %s not found in user KYC table',
         referralCode,
       );
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'Referrer not found',
@@ -55,7 +61,7 @@ const getReferrer =
       referralCode,
     );
 
-    return row;
+    return { address: row.address };
   };
 
 export { getReferrer };
