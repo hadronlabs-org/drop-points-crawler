@@ -1,5 +1,6 @@
 db_path = "data.db"
 log_level = "debug"
+random = "pseudo"
 assets = ["dATOM", 'dTIA']
 default_interval = 43200 #seconds
 
