@@ -29,7 +29,6 @@ export default class LiquidityAllianceSource extends AstroportSource {
   constructor(rpc: string, logger: Logger<never>, params: any) {
     super(rpc, logger, params);
     this.logger = logger;
-
     if (!params.source) {
       throw new Error('No source name configured in params');
     }
@@ -49,12 +48,15 @@ export default class LiquidityAllianceSource extends AstroportSource {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
+    if (this.map) {
+      await this.getUserMap(this.map, height);
+    }
     for (const [
       assetId,
       { denom, pair_contract: pairContract, lp_token, staking_contract },
     ] of Object.entries(this.assets)) {
-      let lpTokenSplit = lp_token.split(':');
-      let token = { [lpTokenSplit[0]]: lpTokenSplit[1] };
+      const lpTokenSplit = lp_token.split(':');
+      const token = { [lpTokenSplit[0]]: lpTokenSplit[1] };
 
       this.logger.debug(
         `LP token for ${assetId}: ${lp_token} at height ${height}`,
@@ -89,21 +91,37 @@ export default class LiquidityAllianceSource extends AstroportSource {
           break;
         }
         startAfter = balances[balances.length - 1].user;
-
+        const out = [];
         for (const result of balances) {
+          if (this.map) {
+            const user = this.userMap[result.user];
+            if (user) {
+              out.push({
+                address: user,
+                balance: String(
+                  Math.floor(
+                    Number(result.balance) * multiplier * exchangeRate,
+                  ),
+                ),
+                asset: assetId,
+              });
+            }
+          } else {
+            out.push({
+              address: result.user,
+              balance: String(
+                Math.floor(Number(result.balance) * multiplier * exchangeRate),
+              ),
+              asset: assetId,
+            });
+          }
           this.logger.debug(
             'Address %s has %s LP',
             result.user,
             result.balance,
           );
         }
-        cb(
-          balances.map((balance) => ({
-            address: balance.user,
-            balance: String(Math.floor(Number(balance.balance) * multiplier)),
-            asset: assetId,
-          })),
-        );
+        cb(out);
         this.logger.debug('Got next key %s', startAfter);
       }
     }

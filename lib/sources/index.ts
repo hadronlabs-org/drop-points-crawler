@@ -12,6 +12,7 @@ import PryzmSource from './pryzm';
 import AmuletSource from './amulet';
 import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
 import LiquidityAllianceSource from './liquidity-alliance';
+import AstroportCWSource from './astroport-cw';
 
 const out = {
   neutron: BankModuleSource,
@@ -21,6 +22,7 @@ const out = {
   osmosis: SubqueryIndexerSource,
   secret: SubqueryIndexerSource,
   astroport: AstroportSource,
+  'astroport-cw': AstroportCWSource,
   generator: AstroportGeneratorSource,
   apollo: ApolloSource,
   nolus: NolusSource,

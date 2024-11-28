@@ -1,6 +1,3 @@
-import { SourceInterface } from '../../../types/sources/source';
-import { Logger } from 'pino';
-import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { queryContractOnHeight } from '../../query';
 
@@ -11,75 +8,9 @@ import {
   QuerySupplyOfResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
+import AstroportSource from '../astroport';
 
-export default class AstroportSource implements SourceInterface {
-  rpc: string;
-  map?: string;
-  userMap: Record<string, string>;
-  concurrencyLimit: number;
-  paginationLimit: number;
-  logger: Logger<never>;
-  assets: Record<string, { denom: string; pair_contract: string }> = {};
-  sourceName: string;
-  client: Tendermint34Client | undefined;
-
-  getUserMap = async (contract: string, height: number): Promise<void> => {
-    if (Object.keys(this.userMap).length > 0) {
-      return;
-    }
-    this.logger.debug(`Getting user map for ${contract} at height ${height}`);
-    const client = await this.getClient();
-    let startAfter = undefined;
-    const out: Record<string, string> = {};
-    while (true) {
-      const userMap: [string, string][] = await queryContractOnHeight(
-        client,
-        contract,
-        height,
-        {
-          get_all: { start_after: startAfter, limit: 2000 },
-        },
-      );
-      this.logger.debug('Got user map %s', userMap);
-      if (!userMap.length) {
-        break;
-      }
-      for (const one of userMap) {
-        out[one[0]] = one[1];
-      }
-      startAfter = userMap[userMap.length - 1][0];
-    }
-    this.userMap = out;
-  };
-
-  getClient = async () => {
-    if (!this.client) {
-      this.client = await Tendermint34Client.connect(this.rpc);
-    }
-    return this.client;
-  };
-
-  constructor(rpc: string, logger: Logger<never>, params: any) {
-    this.logger = logger;
-    this.userMap = {};
-    if (params.map) {
-      this.map = params.map;
-    }
-    if (!params.source) {
-      throw new Error('No source name configured in params');
-    }
-    this.sourceName = params.source;
-
-    if (!params.assets) {
-      throw new Error('No assets configured in params');
-    }
-    this.assets = params.assets;
-
-    this.rpc = rpc;
-    this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
-    this.paginationLimit = parseInt(params.paginationLimit || '30', 10);
-  }
-
+export default class AstroportCWSource extends AstroportSource {
   getUserBalance = async (
     account: string,
     lpContract: string,
@@ -93,12 +24,12 @@ export default class AstroportSource implements SourceInterface {
       lpContract,
       height,
       {
-        balance_at: {
+        balance: {
           address: account,
-          block: height,
         },
       },
     );
+    this.logger.debug('Got balance %s', balance);
     return {
       address: account,
       balance: String(Math.round(Number(balance) * multiplier)),
@@ -121,6 +52,31 @@ export default class AstroportSource implements SourceInterface {
     );
 
     return data.liquidity_token;
+  };
+
+  getAllUsers = async (contact: string, height: number): Promise<string[]> => {
+    let start_after: string | undefined = undefined;
+    const out = [];
+    while (true) {
+      const response: { accounts: string[] } = await queryContractOnHeight(
+        await this.getClient(),
+        contact,
+        height,
+        {
+          all_accounts: {
+            start_after: start_after,
+            limit: 30,
+          },
+        },
+      );
+      if (response.accounts.length === 0) {
+        break;
+      }
+      start_after = response.accounts[response.accounts.length - 1];
+      out.push(...response.accounts);
+    }
+    this.logger.debug('Got %d users', out.length);
+    return out;
   };
 
   getDenomBalances = async (
@@ -198,24 +154,25 @@ export default class AstroportSource implements SourceInterface {
     pairContract: string,
   ): Promise<number> => {
     const client = await this.getClient();
-    const pool = await queryContractOnHeight<{
-      assets: {
+    const pool = await queryContractOnHeight<
+      {
         info: {
           native_token: {
             denom: string;
           };
         };
         amount: string;
-      }[];
-      total_share: string;
-    }>(client, pairContract, height, {
-      pool: {},
+      }[]
+    >(client, pairContract, height, {
+      share: {
+        amount: '100000',
+      },
     });
     this.logger.debug('Got pool %o', pool);
-    const assetTotalSupply = pool.assets.find(
+    const assetAmount = pool.find(
       (asset) => asset.info.native_token.denom === denom,
     )!.amount;
-    return Number(assetTotalSupply) / Number(pool.total_share);
+    return Number(assetAmount) / Number(100000);
   };
 
   getUsersBalances = async (
@@ -230,51 +187,34 @@ export default class AstroportSource implements SourceInterface {
       assetId,
       { denom, pair_contract: pairContract },
     ] of Object.entries(this.assets)) {
-      const lpToken = await this.getLpContract(height, pairContract);
+      const lpContract = await this.getLpContract(height, pairContract);
       this.logger.debug(
-        `LP token for ${assetId}: ${lpToken} at height ${height}`,
+        `LP contract for ${assetId}: ${lpContract} at height ${height}`,
       );
+      const users = await this.getAllUsers(lpContract, height);
       const exchangeRate = await this.getLpExchangeRate(
         height,
         denom,
         pairContract,
       );
       this.logger.debug(`Exchange rate ${exchangeRate}`);
-      let nextKey: undefined | Uint8Array = undefined;
-      do {
-        const { results, nextKey: newNextKey } = await this.getDenomBalances(
-          lpToken,
-          (multipliers[assetId] || 1) * exchangeRate,
+      for (const user of users) {
+        if (this.map && !this.userMap[user]) {
+          continue;
+        }
+        const balance = await this.getUserBalance(
+          user,
+          lpContract,
           height,
-          nextKey,
+          assetId,
+          (multipliers[assetId] || 1) * exchangeRate,
         );
-        const out = [];
-        for (const [address, balance] of Object.entries(results)) {
-          if (this.map) {
-            this.logger.debug('Got address %s', address);
-            const user = this.userMap[address];
-            if (user) {
-              out.push({
-                address: user,
-                balance,
-                asset: assetId,
-              });
-            }
-          } else {
-            out.push({
-              address,
-              balance,
-              asset: assetId,
-            });
-          }
+        if (this.map) {
+          balance.address = this.userMap[user];
         }
-        cb(out);
-        this.logger.debug('Got next key %s', newNextKey);
-        if (!newNextKey) {
-          break;
-        }
-        nextKey = newNextKey;
-      } while (nextKey !== undefined && nextKey.length > 0);
+        this.logger.debug('Got balance %o', balance);
+        cb([balance]);
+      }
     }
     process.exit(1);
   };
