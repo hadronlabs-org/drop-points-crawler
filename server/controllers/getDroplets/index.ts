@@ -25,7 +25,7 @@ const getDroplets =
         change: number;
         place: number;
       }>(
-        'SELECT (points + points_l1 + points_l2)::int as points, change::int as change, place::int as place FROM user_points_public WHERE address = $1 LIMIT 1',
+        'SELECT (points + points_l1 + points_l2)::bigint as points, change::bigint as change, place::int as place FROM user_points_public WHERE address = $1 LIMIT 1',
         [address],
       );
       row = result.rows[0];
