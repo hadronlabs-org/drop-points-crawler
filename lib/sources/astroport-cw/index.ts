@@ -126,28 +126,6 @@ export default class AstroportCWSource extends AstroportSource {
     return { results: out, nextKey: balances.pagination?.nextKey };
   };
 
-  getTotalSupply = async (
-    token: string,
-    height: number,
-  ): Promise<number | undefined> => {
-    const path = '/cosmos.bank.v1beta1.Query/SupplyOf';
-    const request = {
-      denom: token,
-    };
-    const client = await this.getClient();
-    const data = QuerySupplyOfRequest.encode(request).finish();
-    const response = await client.abciQuery({ path, data, height });
-    this.logger.trace('Got response %o', response);
-    if (response.code !== 0) {
-      throw new Error(
-        `Tendermint query error: ${response.log} Code: ${response.code}`,
-      );
-    }
-    const supply = QuerySupplyOfResponse.decode(response.value);
-    this.logger.trace('Supply %o', supply);
-    return parseInt(supply.amount.amount, 10);
-  };
-
   getLpExchangeRate = async (
     height: number,
     denom: string,
