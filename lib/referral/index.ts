@@ -76,7 +76,7 @@ export const updateReferralData = async (
           one.ref,
           one.id,
           one.height,
-          Math.floor(new Date(one.ts).getTime() / 1000),
+          Math.floor(new Date(parseInt(one.ts) | 0).getTime() / 1000),
         ],
       );
     } catch (error) {
