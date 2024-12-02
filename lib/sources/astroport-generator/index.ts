@@ -9,7 +9,10 @@ export default class AstroportGeneratorSource extends AstroportSource {
   paginationLimit: number;
   logger: Logger<never>;
   generatorContract: string;
-  assets: Record<string, { denom: string; pair_contract: string }> = {};
+  assets: Record<
+    string,
+    { denom: string; pair_contract: string; map?: string }
+  > = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
 
@@ -43,9 +46,12 @@ export default class AstroportGeneratorSource extends AstroportSource {
   ): Promise<void> => {
     for (const [
       assetId,
-      { denom, pair_contract: pairContract },
+      { denom, pair_contract: pairContract, map },
     ] of Object.entries(this.assets)) {
-      const lpToken = await this.getLpToken(height, pairContract);
+      if (map) {
+        await this.getUserMap(map, height);
+      }
+      const lpToken = await this.getLpContract(height, pairContract);
       this.logger.debug(
         `LP token for ${assetId}: ${lpToken} at height ${height}`,
       );
@@ -76,14 +82,26 @@ export default class AstroportGeneratorSource extends AstroportSource {
           break;
         }
         startAfter = balances[balances.length - 1][0];
-
-        cb(
-          balances.map((balance) => ({
-            address: balance[0],
-            balance: String(Math.floor(Number(balance[1]) * multiplier)),
-            asset: assetId,
-          })),
-        );
+        const out: { address: string; balance: string; asset: string }[] = [];
+        for (const balance of balances) {
+          if (map) {
+            const user = this.userMap[balance[0]];
+            if (user) {
+              out.push({
+                address: user,
+                balance: String(Math.floor(Number(balance[1]) * multiplier)),
+                asset: assetId,
+              });
+            }
+          } else {
+            out.push({
+              address: balance[0],
+              balance: String(Math.floor(Number(balance[1]) * multiplier)),
+              asset: assetId,
+            });
+          }
+        }
+        cb(out);
       }
     }
   };

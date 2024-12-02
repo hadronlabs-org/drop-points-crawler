@@ -14,12 +14,43 @@ import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 
 export default class AstroportSource implements SourceInterface {
   rpc: string;
+  map?: string;
+  userMap: Record<string, string>;
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
   assets: Record<string, { denom: string; pair_contract: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
+
+  getUserMap = async (contract: string, height: number): Promise<void> => {
+    if (Object.keys(this.userMap).length > 0) {
+      return;
+    }
+    this.logger.debug(`Getting user map for ${contract} at height ${height}`);
+    const client = await this.getClient();
+    let startAfter = undefined;
+    const out: Record<string, string> = {};
+    while (true) {
+      const userMap: [string, string][] = await queryContractOnHeight(
+        client,
+        contract,
+        height,
+        {
+          get_all: { start_after: startAfter, limit: 2000 },
+        },
+      );
+      this.logger.debug('Got user map %s', userMap);
+      if (!userMap.length) {
+        break;
+      }
+      for (const one of userMap) {
+        out[one[0]] = one[1];
+      }
+      startAfter = userMap[userMap.length - 1][0];
+    }
+    this.userMap = out;
+  };
 
   getClient = async () => {
     if (!this.client) {
@@ -30,7 +61,10 @@ export default class AstroportSource implements SourceInterface {
 
   constructor(rpc: string, logger: Logger<never>, params: any) {
     this.logger = logger;
-
+    this.userMap = {};
+    if (params.map) {
+      this.map = params.map;
+    }
     if (!params.source) {
       throw new Error('No source name configured in params');
     }
@@ -72,7 +106,7 @@ export default class AstroportSource implements SourceInterface {
     };
   };
 
-  getLpToken = async (
+  getLpContract = async (
     height: number,
     pairContract: string,
   ): Promise<string> => {
@@ -189,11 +223,14 @@ export default class AstroportSource implements SourceInterface {
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
+    if (this.map) {
+      await this.getUserMap(this.map, height);
+    }
     for (const [
       assetId,
       { denom, pair_contract: pairContract },
     ] of Object.entries(this.assets)) {
-      const lpToken = await this.getLpToken(height, pairContract);
+      const lpToken = await this.getLpContract(height, pairContract);
       this.logger.debug(
         `LP token for ${assetId}: ${lpToken} at height ${height}`,
       );
@@ -211,13 +248,27 @@ export default class AstroportSource implements SourceInterface {
           height,
           nextKey,
         );
-        cb(
-          Object.entries(results).map(([address, balance]) => ({
-            address,
-            balance,
-            asset: assetId,
-          })),
-        );
+        const out = [];
+        for (const [address, balance] of Object.entries(results)) {
+          if (this.map) {
+            this.logger.debug('Got address %s', address);
+            const user = this.userMap[address];
+            if (user) {
+              out.push({
+                address: user,
+                balance,
+                asset: assetId,
+              });
+            }
+          } else {
+            out.push({
+              address,
+              balance,
+              asset: assetId,
+            });
+          }
+        }
+        cb(out);
         this.logger.debug('Got next key %s', newNextKey);
         if (!newNextKey) {
           break;
@@ -225,6 +276,7 @@ export default class AstroportSource implements SourceInterface {
         nextKey = newNextKey;
       } while (nextKey !== undefined && nextKey.length > 0);
     }
+    process.exit(1);
   };
 
   getLastBlockHeight = async (): Promise<number> => {
