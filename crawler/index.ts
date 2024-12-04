@@ -95,10 +95,8 @@ program
               SELECT 
                 * 
               FROM schedule s
-              LEFT JOIN 
-                batches bt ON  bt.ts > s.start AND bt.ts < s.end
               WHERE 
-                ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
+                ((s.start = 0 AND s.end = 0) OR (s.start < ? AND s.end > ?))
               ORDER BY protocol_id, schedule_id DESC
         ) a GROUP BY a.protocol_id
       ) b
