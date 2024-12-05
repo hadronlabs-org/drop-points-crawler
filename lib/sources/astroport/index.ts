@@ -276,7 +276,6 @@ export default class AstroportSource implements SourceInterface {
         nextKey = newNextKey;
       } while (nextKey !== undefined && nextKey.length > 0);
     }
-    process.exit(1);
   };
 
   getLastBlockHeight = async (): Promise<number> => {

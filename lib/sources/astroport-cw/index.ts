@@ -194,7 +194,6 @@ export default class AstroportCWSource extends AstroportSource {
         cb([balance]);
       }
     }
-    process.exit(1);
   };
 
   getLastBlockHeight = async (): Promise<number> => {
