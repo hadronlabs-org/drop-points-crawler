@@ -98,12 +98,13 @@ program
             protocol_id, asset_id, multiplier, enabled
           FROM schedule s
           WHERE 
-            ((s.start_time = 0 AND s.end_time = 0) OR (s.start < $1 AND s.end > $2))
+            ((s.start_time = 0 AND s.end_time = 0) OR (s.start_time < $1 AND s.end_time > $2))
           ORDER BY protocol_id, schedule_id DESC
         ) AS subquery
         WHERE enabled = true
         GROUP BY protocol_id, asset_id, multiplier, enabled
         `,
+        [ts, ts]
       );
       if (!protocolsInDb.length) {
         logger.info('No protocols found in the schedule');
