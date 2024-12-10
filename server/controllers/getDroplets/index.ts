@@ -4,12 +4,14 @@ import {
   tRPCGetDropletsRequest,
   tRPCGetDropletsResponse,
 } from '../../../types/tRPC/tRPCGetDroplets';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
+import { connect } from '../../../db';
 
 const getDroplets =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetDropletsRequest): tRPCGetDropletsResponse => {
+  (config: any, logger: Logger) =>
+  async (req: tRPCGetDropletsRequest): Promise<tRPCGetDropletsResponse> => {
+    const db = await connect(true, config, logger);
+
     const {
       input: { address },
     } = req;
@@ -18,17 +20,22 @@ const getDroplets =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { points: number; change: number; place: number },
-          [string]
-        >('SELECT points + points_l1 + points_l2 as points, change, place FROM user_points_public WHERE address = ? LIMIT 1')
-        .get(address);
+      const result = await db.query<{
+        points: number;
+        change: number;
+        place: number;
+      }>(
+        'SELECT (points + points_l1 + points_l2)::bigint as points, change::bigint as change, place::int as place FROM user_points_public WHERE address = $1 LIMIT 1',
+        [address],
+      );
+      row = result.rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching points: %s',
         (e as Error).message,
       );
+
+      await db.end();
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
@@ -41,6 +48,9 @@ const getDroplets =
         'Address %s not found in public user points table',
         req.input.address,
       );
+
+      await db.end();
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'Address not found',
@@ -49,12 +59,10 @@ const getDroplets =
 
     let countResult;
     try {
-      countResult = db
-        .query<
-          { total: number },
-          []
-        >('SELECT count(*) as total FROM user_points_public')
-        .get();
+      const countRes = await db.query(
+        'SELECT count(*)::int as total FROM user_points_public',
+      );
+      countResult = countRes.rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching total: %s',
@@ -65,6 +73,8 @@ const getDroplets =
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      await db.end();
     }
 
     if (!countResult) {
