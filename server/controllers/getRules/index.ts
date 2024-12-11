@@ -1,13 +1,14 @@
 import { Logger } from 'pino';
 import { tRPCGetRulesResponse } from '../../../types/tRPC/tRPCGetRules';
 import { TRPCError } from '@trpc/server';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const getRules =
   (config: any, logger: Logger) => async (): Promise<tRPCGetRulesResponse> => {
     logger.debug('Receiving request to get Droplet rules');
 
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     type dbResponse = {
       strategy: string;
@@ -46,7 +47,8 @@ const getRules =
         message: 'Unexpected error occurred',
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (rows.length === 0) {

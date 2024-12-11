@@ -1,17 +1,17 @@
 import { TRPCError } from '@trpc/server';
-import { Client } from 'pg';
 
 import { Logger } from 'pino';
 import {
   tRPCGetKVDataRequest,
   tRPCGetKVDataResponse,
 } from '../../../types/tRPC/tRPCGetKVData';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const getKVData =
   (config: any, logger: Logger) =>
   async (req: tRPCGetKVDataRequest): Promise<tRPCGetKVDataResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { key },
@@ -36,7 +36,8 @@ const getKVData =
         message: 'Unexpected error occurred',
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (!row) {

@@ -6,8 +6,8 @@ const tRPCGetDropletsRequestSchema = z.object({
 });
 
 const tRPCGetDropletsResponseSchema = z.object({
-  points: z.number(),
-  change: z.number(),
+  points: z.string(),
+  change: z.string(),
   place: z.number(),
   totalPlaces: z.number(),
 });
@@ -19,8 +19,8 @@ type tRPCGetDropletsRequest = {
 };
 
 type tRPCGetDropletsResponse = {
-  points: number;
-  change: number;
+  points: string;
+  change: string;
   place: number;
   totalPlaces: number;
 };

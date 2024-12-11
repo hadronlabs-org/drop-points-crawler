@@ -4,7 +4,7 @@ import {
   tRPCPostKVDataRequest,
   tRPCPostKVDataResponse,
 } from '../../../types/tRPC/tRPCPostKVData';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -14,7 +14,8 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 const postKVData =
   (config: any, logger: Logger) =>
   async (req: tRPCPostKVDataRequest): Promise<tRPCPostKVDataResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { key, value },
@@ -44,7 +45,8 @@ const postKVData =
       );
       throw UNEXPECTED_TRPC_ERROR;
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
   };
 

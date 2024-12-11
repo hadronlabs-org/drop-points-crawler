@@ -1,6 +1,6 @@
 import { Logger } from 'pino';
 import { GraphQLClient, gql } from 'graphql-request';
-import { Client } from 'pg';
+import { PoolClient } from 'pg';
 
 type UserBondsResponse =
   | {
@@ -16,7 +16,7 @@ type UserBondsResponse =
   | undefined;
 
 export const updateReferralData = async (
-  db: Client,
+  db: PoolClient,
   config: any,
   logger: Logger<never>,
 ): Promise<void> => {

@@ -5,12 +5,13 @@ import {
   tRPCGetDropletsResponse,
 } from '../../../types/tRPC/tRPCGetDroplets';
 import { Logger } from 'pino';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const getDroplets =
   (config: any, logger: Logger) =>
   async (req: tRPCGetDropletsRequest): Promise<tRPCGetDropletsResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { address },
@@ -21,11 +22,11 @@ const getDroplets =
     let row = null;
     try {
       const result = await db.query<{
-        points: number;
-        change: number;
+        points: string;
+        change: string;
         place: number;
       }>(
-        'SELECT (points + points_l1 + points_l2)::bigint as points, change::bigint as change, place::int as place FROM user_points_public WHERE address = $1 LIMIT 1',
+        'SELECT points + points_l1 + points_l2 as points, change as change, place as place FROM user_points_public WHERE address = $1 LIMIT 1',
         [address],
       );
       row = result.rows[0];
@@ -35,7 +36,8 @@ const getDroplets =
         (e as Error).message,
       );
 
-      await db.end();
+      db.release();
+      await pool.end();
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
@@ -49,7 +51,8 @@ const getDroplets =
         req.input.address,
       );
 
-      await db.end();
+      db.release();
+      await pool.end();
 
       throw new TRPCError({
         code: 'NOT_FOUND',
@@ -74,7 +77,8 @@ const getDroplets =
         message: 'Unexpected error occurred',
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (!countResult) {
@@ -90,6 +94,7 @@ const getDroplets =
 
     logger.debug('Request to get droplets for address %s is finished', address);
 
+    console.log({ ...row, totalPlaces: countResult.total });
     return { ...row, totalPlaces: countResult.total };
   };
 

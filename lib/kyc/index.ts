@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import { PoolClient } from 'pg';
 import { customAlphabet } from 'nanoid';
 import { Logger } from 'pino';
 
@@ -10,7 +10,7 @@ const CUSTOM_ALPHABET =
   '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 export const insertKYCRecord = async (
-  db: Client,
+  db: PoolClient,
   logger: Logger,
   address: string,
   kycId: string,

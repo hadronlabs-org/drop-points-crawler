@@ -5,12 +5,13 @@ import {
   tRPCGetReferrerResponse,
 } from '../../../types/tRPC/tRPCGetReferrer';
 import { Logger } from 'pino';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const getReferrer =
   (config: any, logger: Logger) =>
   async (req: tRPCGetReferrerRequest): Promise<tRPCGetReferrerResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { referralCode },
@@ -34,14 +35,16 @@ const getReferrer =
         (e as Error).message,
       );
 
-      await db.end();
+      db.release();
+      await pool.end();
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (!row) {

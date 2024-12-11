@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Command } from 'commander';
-import { Client } from 'pg';
-import { connect } from '../db';
+import { PoolClient } from 'pg';
+import { getDatabasePool } from '../db';
 import { getLogger } from '../lib/logger';
 import sources from '../lib/sources';
 import { UserBalance } from '../types/sources/userBalance';
@@ -38,7 +38,7 @@ validatePostgresInfo(config);
 const logger = getLogger(config);
 
 const getAssetMulsByProtocolAndBatchId = async (
-  db: Client,
+  db: PoolClient,
   protocolId: string,
   batchId: number,
 ) => {
@@ -76,12 +76,14 @@ program
   .option('-t --timestamp <timestamp>', 'Timestamp to use')
   .option('-s --simulate', 'Just simulate the task')
   .action(async (options) => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
 
     const ts = parseInt(
       options.timestamp || (Date.now() / 1000).toString(),
       10,
     );
+
+    const db = await pool.connect();
 
     try {
       await db.query('BEGIN');
@@ -104,7 +106,7 @@ program
         WHERE enabled = true
         GROUP BY protocol_id, asset_id, multiplier, enabled
         `,
-        [ts, ts]
+        [ts, ts],
       );
       if (!protocolsInDb.length) {
         logger.info('No protocols found in the schedule');
@@ -198,7 +200,8 @@ program
       logger.error('Transaction rolled back due to error: %s', error);
     } finally {
       logger.info('Operation finished');
-      await db.end();
+      db.release();
+      await pool.end();
     }
   });
 
@@ -208,7 +211,8 @@ program
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     // Get the batch ID and height of the task
     const { batchId, height } = await (async () => {
@@ -265,7 +269,7 @@ program
       height,
       multipliers,
       async (balances: UserBalance[]) => {
-        const callbackDbClient = await connect(false, config, logger);
+        const callbackDbClient = await pool.connect();
 
         const insertUserDataQuery = `
           INSERT INTO user_data (batch_id, address, protocol_id, height, asset, balance)
@@ -293,7 +297,7 @@ program
           logger.error('Error inserting user balances:', err);
         }
 
-        await callbackDbClient.end();
+        callbackDbClient.release();
       },
     );
 
@@ -303,7 +307,8 @@ program
       ['ready', protocolId, batchId],
     );
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Task has been processed');
   });
 
@@ -313,7 +318,8 @@ program
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
   .action(async (options) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     const batchId = await (async () => {
       if (options.batch_id === undefined) {
@@ -353,7 +359,8 @@ program
     const cnt = cntRows[0].cnt;
     if (cnt !== 0) {
       logger.error('Not all tasks are ready');
-      await db.end();
+      db.release();
+      await pool.end();
       return;
     }
 
@@ -524,7 +531,8 @@ program
       await db.query('ROLLBACK');
       logger.error('Transaction rolled back due to error: %s', error);
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
   });
 
@@ -532,7 +540,8 @@ program
   .command('publish_on_chain')
   .description('Publish points to CW20 contract')
   .action(async () => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     const { rows: publicPoints } = await db.query(
       'SELECT address, points + points_l1 + points_l2 as points FROM user_points_public',
@@ -564,7 +573,8 @@ program
       );
     }
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Points have been saved to the on chain contract');
   });
 
@@ -584,7 +594,8 @@ scheduleCli
   .option('-f --force')
   .action(
     async (protocolId, assetId, start, end, multiplier, enabled, options) => {
-      const db = await connect(false, config, logger);
+      const pool = await getDatabasePool(false, config, logger);
+      const db = await pool.connect();
 
       const protocolObject = config.protocols[protocolId];
       const assetObject = config.protocols[protocolId].assets[assetId];
@@ -671,6 +682,9 @@ scheduleCli
         } catch (e) {
           logger.error('Cannot build valid rule for the schedule');
           throw e;
+        } finally {
+          db.release();
+          await pool.end();
         }
 
         await db.query(
@@ -695,7 +709,8 @@ scheduleCli
         await db.query('ROLLBACK'); // Rollback transaction on error
         logger.error('Error during transaction, rolling back:', error);
       } finally {
-        await db.end();
+        db.release();
+        await pool.end();
       }
     },
   );
@@ -704,7 +719,8 @@ scheduleCli
   .command('list')
   .description('Display the schedule')
   .action(async () => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     logger.info('Schedule list');
 
@@ -725,7 +741,8 @@ scheduleCli
       );
     });
 
-    await db.end();
+    db.release();
+    await pool.end();
   });
 
 scheduleCli
@@ -733,7 +750,8 @@ scheduleCli
   .description('Delete a schedule')
   .argument('<schedule_id>', 'Schedule ID')
   .action(async (scheduleId: string) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     logger.info('Deleting schedule');
     const id = parseInt(scheduleId, 10);
@@ -753,7 +771,8 @@ scheduleCli
 
     await db.query('DELETE FROM schedule WHERE schedule_id = $1', [id]);
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Schedule has been deleted');
   });
 
@@ -767,7 +786,8 @@ referralCli
   .argument('<referral>', 'Address of the referral')
   .description('Add a referral')
   .action(async (referrer, referral) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     logger.info('Adding referral %s -> %s', referrer, referral);
 
@@ -776,7 +796,8 @@ referralCli
       [referrer, referral],
     );
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Referral has been added');
   });
 
@@ -785,7 +806,8 @@ referralCli
   .argument('<address>', 'Address')
   .description('List referrals')
   .action(async (address) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     logger.info('Referral list');
 
@@ -802,18 +824,21 @@ referralCli
       }
     }
 
-    await db.end();
+    db.release();
+    await pool.end();
   });
 
 referralCli
   .command('sync')
   .description('retrieve last Referral data')
   .action(async () => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     await updateReferralData(db, config, logger);
 
-    await db.end();
+    db.release();
+    await pool.end();
   });
 
 const blacklistCli = program
@@ -825,11 +850,13 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Insert address into blacklist')
   .action(async (address) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     await db.query('INSERT INTO blacklist (address) VALUES ($1)', [address]);
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Inserted %s into blacklist', address);
   });
 
@@ -838,11 +865,13 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Remove address from blacklist')
   .action(async (address) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     await db.query('DELETE FROM blacklist WHERE address = $1', [address]);
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Removed %s from blacklist', address);
   });
 
@@ -855,7 +884,8 @@ kycCli
   .option('-i --id <kyc_id>', 'KYC id')
   .option('-c --code <code>', 'Referral code')
   .action(async (address, options) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     address = neutronAddress.parse(address).toString();
     const kycId = options.id || `local_${address}`;
@@ -876,7 +906,8 @@ kycCli
       userCode,
     );
 
-    await db.end();
+    db.release();
+    await pool.end();
     logger.info('Referral code: %s', code);
   });
 
@@ -884,7 +915,8 @@ kycCli
   .command('get')
   .argument('<address>', 'Address')
   .action(async (address) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     address = neutronAddress.parse(address).toString();
 
@@ -905,7 +937,8 @@ kycCli
       );
     }
 
-    await db.end();
+    db.release();
+    await pool.end();
   });
 
 const debugCli = program.command('debug').description('Debug commands');
@@ -916,7 +949,8 @@ debugCli
   .argument('<batch_id>', 'Batch id')
   .argument('<user_address>', 'User address on any chain')
   .action(async (protocolId, batchId, userAddress) => {
-    const db = await connect(false, config, logger);
+    const pool = await getDatabasePool(false, config, logger);
+    const db = await pool.connect();
 
     // Get the batch ID and height of the task
     logger.level = 'info';
@@ -965,7 +999,8 @@ debugCli
       },
     );
 
-    await db.end();
+    db.release();
+    await pool.end();
   });
 
 program.parse(process.argv);

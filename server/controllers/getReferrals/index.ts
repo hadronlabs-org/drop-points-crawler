@@ -6,12 +6,13 @@ import {
   tRPCGetReferralsResponse,
 } from '../../../types/tRPC/tRPCGetReferrals';
 import { Logger } from 'pino';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const getReferrals =
   (config: any, logger: Logger) =>
   async (req: tRPCGetReferralsRequest): Promise<tRPCGetReferralsResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { address },
@@ -45,7 +46,8 @@ const getReferrals =
         message: 'Unexpected error occurred',
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (!rows) {
@@ -98,7 +100,6 @@ const getReferrals =
       }
     }
 
-    console.log(referrals);
     return { referrals };
   };
 

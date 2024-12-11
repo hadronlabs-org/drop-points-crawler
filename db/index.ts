@@ -1,31 +1,46 @@
-import { Client } from 'pg';
+import { Pool } from 'pg';
 import { Logger } from 'pino';
 
 import { dropletRuleSchema } from '../types/config/dropletRule';
 import { getValidData } from '../lib/validations/config';
 
-export const connect = async (
+export const getDatabasePool = async (
   createTables = false,
   config: any,
   logger: Logger<never>,
-): Promise<Client> => {
-  const dbPath = config.db_path;
-  if (!dbPath) {
-    throw new Error('DB_PATH environment variable not set');
+): Promise<Pool> => {
+  const { host, port, database, user, password } = config.postgres;
+
+  if (!host) {
+    throw new Error('Postgres host variable is not set in the config');
+  }
+  if (!port) {
+    throw new Error('Postgres port variable is not set in the config');
+  }
+  if (!database) {
+    throw new Error('Postgres database variable is not set in the config');
+  }
+  if (!user) {
+    throw new Error('Postgres user variable is not set in the config');
+  }
+  if (!password) {
+    throw new Error('Postgres password variable is not set in the config');
   }
 
-  logger.debug('Connecting to database at %s', dbPath);
+  logger.debug('Connecting to database at %s:%s', host, port);
 
-  const { host, port, database, user, password } = config.postgres;
-  const db = new Client({
+  const pool = new Pool({
     host,
     port,
     database,
     user,
     password,
+    max: 30,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
   });
 
-  await db.connect();
+  const db = await pool.connect();
   await db.query(`SET lock_timeout = '5s'`);
 
   if (createTables) {
@@ -216,5 +231,7 @@ export const connect = async (
     }
   }
 
-  return db;
+  db.release();
+
+  return pool;
 };

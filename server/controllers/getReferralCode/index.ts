@@ -5,7 +5,7 @@ import {
   tRPCGetReferralCodeResponse,
 } from '../../../types/tRPC/tRPCGetReferralCode';
 import { Logger } from 'pino';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -17,7 +17,8 @@ const getReferralCode =
   async (
     req: tRPCGetReferralCodeRequest,
   ): Promise<tRPCGetReferralCodeResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { address },
@@ -52,7 +53,8 @@ const getReferralCode =
 
       throw UNEXPECTED_TRPC_ERROR;
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     if (!row) {

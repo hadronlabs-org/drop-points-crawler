@@ -1,12 +1,12 @@
 import { Logger } from 'pino';
 import * as client from 'prom-client';
-import { connect } from '../db';
+import { getDatabasePool } from '../db';
 
 export const getRegistry = async (
   config: any,
   logger: Logger,
 ): Promise<client.Registry<'text/plain; version=0.0.4; charset=utf-8'>> => {
-  const db = await connect(true, config, logger);
+  const db = await getDatabasePool(true, config, logger);
 
   const register = new client.Registry();
 

@@ -6,12 +6,13 @@ import {
 } from '../../../types/tRPC/tRPCPostKyc';
 import { insertKYCRecord } from '../../../lib/kyc';
 import { TRPC_ERROR_CODE_KEY } from '@trpc/server/rpc';
-import { connect } from '../../../db';
+import { getDatabasePool } from '../../../db';
 
 const postKyc =
   (config: any, logger: Logger) =>
   async (req: tRPCPostKycRequest): Promise<tRPCPostKycResponse> => {
-    const db = await connect(true, config, logger);
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
 
     const {
       input: { address, kycId, kycProvider },
@@ -32,7 +33,8 @@ const postKyc =
         message: (e as Error).message,
       });
     } finally {
-      await db.end();
+      db.release();
+      await pool.end();
     }
 
     return { referralCode };
