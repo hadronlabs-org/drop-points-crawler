@@ -5,12 +5,15 @@ import {
   tRPCGetReferralsRequest,
   tRPCGetReferralsResponse,
 } from '../../../types/tRPC/tRPCGetReferrals';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
+import { getDatabasePool } from '../../../db';
 
 const getReferrals =
-  (db: Database, config: any, logger: Logger) =>
-  (req: tRPCGetReferralsRequest): tRPCGetReferralsResponse => {
+  (config: any, logger: Logger) =>
+  async (req: tRPCGetReferralsRequest): Promise<tRPCGetReferralsResponse> => {
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
+
     const {
       input: { address },
     } = req;
@@ -22,15 +25,16 @@ const getReferrals =
       l2Referral: string;
     };
 
-    let rows: dbResponse[] | null;
+    let rows: dbResponse[] | null = [];
     try {
-      rows = db
-        .query<dbResponse, [string]>(
-          `SELECT r1.referral as l1Referral, r2.referral as l2Referral 
-                    FROM referrals r1 LEFT JOIN referrals r2 ON (r2.referrer = r1.referral) 
-                    WHERE r1.referrer = ?`,
-        )
-        .all(address);
+      const queryResult = await db.query(
+        `SELECT r1.referral as "l1Referral", r2.referral as "l2Referral" 
+         FROM referrals r1 
+         LEFT JOIN referrals r2 ON r2.referrer = r1.referral 
+         WHERE r1.referrer = $1`,
+        [address],
+      );
+      rows = queryResult.rows;
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching referrals: %s',
@@ -41,6 +45,9 @@ const getReferrals =
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Unexpected error occurred',
       });
+    } finally {
+      db.release();
+      await pool.end();
     }
 
     if (!rows) {
@@ -92,6 +99,7 @@ const getReferrals =
         });
       }
     }
+
     return { referrals };
   };
 

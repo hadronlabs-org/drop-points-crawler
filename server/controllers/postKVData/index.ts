@@ -1,10 +1,10 @@
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 import { TRPCError } from '@trpc/server';
 import {
   tRPCPostKVDataRequest,
   tRPCPostKVDataResponse,
 } from '../../../types/tRPC/tRPCPostKVData';
+import { getDatabasePool } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -12,8 +12,11 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 });
 
 const postKVData =
-  (db: Database, logger: Logger) =>
-  (req: tRPCPostKVDataRequest): tRPCPostKVDataResponse => {
+  (config: any, logger: Logger) =>
+  async (req: tRPCPostKVDataRequest): Promise<tRPCPostKVDataResponse> => {
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
+
     const {
       input: { key, value },
     } = req;
@@ -25,9 +28,12 @@ const postKVData =
     );
 
     try {
-      db.exec<[string, string, string]>(
-        'INSERT INTO kvstore (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?;',
-        [key, value, value],
+      await db.query(
+        `INSERT INTO kvstore (key, value) 
+         VALUES ($1, $2) 
+         ON CONFLICT (key) 
+         DO UPDATE SET value = $2;`,
+        [key, value],
       );
       return true;
     } catch (e) {
@@ -38,6 +44,9 @@ const postKVData =
         (e as Error).message,
       );
       throw UNEXPECTED_TRPC_ERROR;
+    } finally {
+      db.release();
+      await pool.end();
     }
   };
 

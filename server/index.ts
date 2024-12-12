@@ -34,7 +34,6 @@ import {
   tRPCGetReferralsResponseSchema,
 } from '../types/tRPC/tRPCGetReferrals';
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
-import { connect } from '../db';
 import { Command } from 'commander';
 import { getRegistry } from './prometeus';
 import {
@@ -64,33 +63,32 @@ if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
 const logger = getLogger(config);
-const db = connect(true, config, logger);
 
 const appRouter = router({
   getDroplets: publicProcedure
     .input(tRPCGetDropletsRequestSchema)
     .output(tRPCGetDropletsResponseSchema)
-    .query(getDroplets(db, logger)),
+    .query(getDroplets(config, logger)),
   postKyc: publicProcedure
     .input(tRPCPostKycRequestSchema)
     .output(tRPCPostKycResponseSchema)
-    .mutation(postKyc(db, logger)),
+    .mutation(postKyc(config, logger)),
   postKVData: publicProcedure
     .input(tRPCPostKVDataRequestSchema)
     .output(tRPCPostKVDataResponseSchema)
-    .mutation(postKVData(db, logger)),
+    .mutation(postKVData(config, logger)),
   getKVData: publicProcedure
     .input(tRPCGetKVDataRequestSchema)
     .output(tRPCGetKVDataResponseSchema)
-    .query(getKVData(db, logger)),
+    .query(getKVData(config, logger)),
   getReferralCode: publicProcedure
     .input(tRPCGetReferralCodeRequestSchema)
     .output(tRPCGetReferralCodeResponseSchema)
-    .query(getReferralCode(db, logger)),
+    .query(getReferralCode(config, logger)),
   getReferrer: publicProcedure
     .input(tRPCGetReferrerRequestSchema)
     .output(tRPCGetReferrerResponseSchema)
-    .query(getReferrer(db, logger)),
+    .query(getReferrer(config, logger)),
   getStakerStatus: publicProcedure
     .input(tRPCGetStakerStatusRequestSchema)
     .output(tRPCGetStakerStatusResponseSchema)
@@ -98,15 +96,15 @@ const appRouter = router({
   getReferrals: publicProcedure
     .input(tRPCGetReferralsRequestSchema)
     .output(tRPCGetReferralsResponseSchema)
-    .query(getReferrals(db, config, logger)),
+    .query(getReferrals(config, logger)),
   getRules: publicProcedure
     .output(tRPCGetRulesResponseSchema)
-    .query(getRules(db, logger)),
+    .query(getRules(config, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;
 
-const register = getRegistry(config, db);
+const register = await getRegistry(config, logger);
 
 expressApp.get('/metrics', async (req, res, next) => {
   res.setHeader('Content-type', register.contentType);

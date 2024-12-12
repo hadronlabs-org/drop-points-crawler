@@ -1,57 +1,73 @@
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
 import { tRPCGetRulesResponse } from '../../../types/tRPC/tRPCGetRules';
 import { TRPCError } from '@trpc/server';
+import { getDatabasePool } from '../../../db';
 
-const getRules = (db: Database, logger: Logger) => (): tRPCGetRulesResponse => {
-  logger.debug('Receiving request to get Droplet rules');
+const getRules =
+  (config: any, logger: Logger) => async (): Promise<tRPCGetRulesResponse> => {
+    logger.debug('Receiving request to get Droplet rules');
 
-  type dbResponse = {
-    strategy: string;
-    description: string;
-    dropRate: number;
-    chain: string;
-    status: boolean;
-    link: string;
-    linkText: string;
-    type: string;
-    featured: boolean;
-    visible: boolean;
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
+
+    type dbResponse = {
+      strategy: string;
+      description: string;
+      dropRate: number;
+      chain: string;
+      status: boolean;
+      link: string;
+      linkText: string;
+      type: string;
+      featured: boolean;
+      visible: boolean;
+    };
+    let rows: dbResponse[] | null;
+    try {
+      const queryResult = await db.query(
+        `SELECT 
+         strategy, 
+         description, 
+         multiplier AS "dropRate", 
+         chain, 
+         status, 
+         link, 
+         link_text AS "linkText", 
+         type, 
+         featured 
+       FROM user_points_rules 
+       WHERE visible = true`,
+      );
+      rows = queryResult.rows;
+    } catch (e) {
+      logger.error('Unexpected error occurred while fetching Droplet rules');
+
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Unexpected error occurred',
+      });
+    } finally {
+      db.release();
+      await pool.end();
+    }
+
+    if (rows.length === 0) {
+      logger.error('Droplet rules are not found');
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Droplet rules not found',
+      });
+    }
+
+    logger.debug('Request to get Droplet rules is finished');
+
+    return {
+      rules: rows.map((row) => ({
+        ...row,
+        status: Boolean(row.status),
+        featured: Boolean(row.featured),
+      })),
+    };
   };
-  let rows: dbResponse[] | null;
-  try {
-    rows = db
-      .query<
-        dbResponse,
-        []
-      >('SELECT strategy, description, multiplier as dropRate, chain, status, link, link_text as linkText, type, featured FROM user_points_rules WHERE visible=true')
-      .all();
-  } catch (e) {
-    logger.error('Unexpected error occurred while fetching Droplet rules');
-
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Unexpected error occurred',
-    });
-  }
-
-  if (!rows) {
-    logger.error('Droplet rules are not found');
-    throw new TRPCError({
-      code: 'NOT_FOUND',
-      message: 'Droplet rules not found',
-    });
-  }
-
-  logger.debug('Request to get Droplet rules is finished');
-
-  return {
-    rules: rows.map((row) => ({
-      ...row,
-      status: Boolean(row.status),
-      featured: Boolean(row.featured),
-    })),
-  };
-};
 
 export { getRules };

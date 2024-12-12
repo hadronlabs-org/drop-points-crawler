@@ -4,8 +4,8 @@ import {
   tRPCGetReferralCodeRequest,
   tRPCGetReferralCodeResponse,
 } from '../../../types/tRPC/tRPCGetReferralCode';
-import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
+import { getDatabasePool } from '../../../db';
 
 const UNEXPECTED_TRPC_ERROR = new TRPCError({
   code: 'INTERNAL_SERVER_ERROR',
@@ -13,8 +13,13 @@ const UNEXPECTED_TRPC_ERROR = new TRPCError({
 });
 
 const getReferralCode =
-  (db: Database, logger: Logger) =>
-  (req: tRPCGetReferralCodeRequest): tRPCGetReferralCodeResponse => {
+  (config: any, logger: Logger) =>
+  async (
+    req: tRPCGetReferralCodeRequest,
+  ): Promise<tRPCGetReferralCodeResponse> => {
+    const pool = await getDatabasePool(true, config, logger);
+    const db = await pool.connect();
+
     const {
       input: { address },
     } = req;
@@ -26,20 +31,20 @@ const getReferralCode =
 
     let row = null;
     try {
-      row = db
-        .query<
-          { referralCode: string; blacklisted: boolean; kycPassed: boolean },
-          [string]
-        >(
-          `SELECT uk.referral_code as referralCode, 
-                           IIF(IFNULL(b.address, "ok") == "ok", 0, 1) blacklisted, 
-                           IIF(IFNULL(uk.address, "ok") == "ok", 0, 1) kycPassed 
-                           FROM (select ? address) f 
-                           LEFT JOIN blacklist b ON (b.address = f.address) 
-                           LEFT JOIN user_kyc uk ON (uk.address = f.address)
-                           LIMIT 1`,
-        )
-        .get(address);
+      const { rows } = await db.query(
+        `SELECT 
+           uk.referral_code AS "referralCode", 
+           CASE WHEN b.address IS NULL THEN 0 ELSE 1 END AS "blacklisted", 
+           CASE WHEN uk.address IS NULL THEN 0 ELSE 1 END AS "kycPassed" 
+         FROM 
+           (SELECT $1 AS address) f 
+         LEFT JOIN blacklist b ON b.address = f.address 
+         LEFT JOIN user_kyc uk ON uk.address = f.address
+         LIMIT 1`,
+        [address],
+      );
+
+      row = rows[0];
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching a referral code: %s',
@@ -47,6 +52,9 @@ const getReferralCode =
       );
 
       throw UNEXPECTED_TRPC_ERROR;
+    } finally {
+      db.release();
+      await pool.end();
     }
 
     if (!row) {
@@ -54,6 +62,7 @@ const getReferralCode =
         'Referral code cannot be fetched for %s from user KYC table',
         address,
       );
+
       throw new TRPCError({
         code: 'UNPROCESSABLE_CONTENT',
         message: 'Failed to fetch data',
@@ -64,6 +73,7 @@ const getReferralCode =
 
     if (blacklisted) {
       logger.error('The address %s is blacklisted', address);
+
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'This address is blacklisted',
@@ -72,6 +82,7 @@ const getReferralCode =
 
     if (!kycPassed) {
       logger.error('KYC is not passed for %s', address);
+
       throw new TRPCError({
         code: 'NOT_FOUND',
         message: 'KYC is not passed',
@@ -83,6 +94,7 @@ const getReferralCode =
         'KYC passed for %s but referral code not found in user KYC table',
         address,
       );
+
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'Referral code not found',
