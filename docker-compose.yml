@@ -1,14 +1,15 @@
 services:
   postgres_drop_points_crawler:
-    build: .
-    image: postgres_drop-points-crawler
+    image: postgres-drop-points-crawler
     container_name: postgres-drop-points-crawler
     volumes:
       - ./config.toml:/usr/src/app/config.toml
-      - ./store:/usr/src/app/store
     ports:
       - 3000:3000
     entrypoint: [ "bun", "serve" ]
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:15
     container_name: postgres-container
@@ -18,8 +19,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - 5432:5432
 
 volumes:
   postgres_data:

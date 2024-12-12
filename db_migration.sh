@@ -1,80 +1,47 @@
 #!/bin/bash
 
-# Input arguments
-SQLITE_DB=$1     # Path to your SQLite database
-PG_HOST=$2       # PostgreSQL host
-PG_PORT=$3       # PostgreSQL port
-PG_DB=$4         # PostgreSQL database name
-PG_USER=$5       # PostgreSQL username
-PG_PASSWORD=$6   # PostgreSQL password
+# Paths and Variables
+SQLITE_DB="/path/to/sqlite/data.db"
+OUTPUT_DIR="/path/to/csvs"
+CONTAINER_NAME="postgres-container"
+DB_NAME="crawler"
+USER="user"
+CSV_DIR="/tmp/csv_files"
 
-# Validate input arguments
-if [ "$#" -ne 6 ]; then
-  echo "Usage: $0 <sqlite_db> <pg_host> <pg_port> <pg_db> <pg_user> <pg_password>"
-  exit 1
-fi
+# Step 0: Clear the OUTPUT_DIR before the migration
+echo "Clearing old CSV files in the output directory..."
+rm -rf $OUTPUT_DIR/*
+echo "Old CSV files cleared!"
 
-# Tables to migrate
-TABLES=(
-  "batches"
-  "prices"
-  "tasks"
-  "user_data"
-  "user_kyc"
-  "referrals"
-  "user_points"
-  "user_points_public"
-  "schedule"
-  "user_points_rules"
-  "blacklist"
-  "kvstore"
-  "aliases"
-  "changes"
-)
+# Step 1: Dump SQLite tables to CSV
+echo "Dumping SQLite tables to CSV..."
 
-# Export PostgreSQL password for psql
-export PGPASSWORD=$PG_PASSWORD
+tables=$(sqlite3 $SQLITE_DB ".tables")
 
-# Function to migrate a table
-migrate_table() {
-  local table_name=$1
-  echo "Migrating table: $table_name"
-
-  # Export data from SQLite to a CSV file
-  sqlite3 $SQLITE_DB <<EOF
+for table in $tables; do
+    echo "Dumping $table to CSV..."
+    sqlite3 $SQLITE_DB <<EOF > /dev/null
 .headers on
 .mode csv
-.output ${table_name}.csv
-SELECT * FROM $table_name;
+.output $OUTPUT_DIR/$table.csv
+SELECT * FROM $table;
 EOF
-
-  # Check if the export was successful
-  if [ $? -ne 0 ]; then
-    echo "Error exporting table $table_name from SQLite."
-    exit 1
-  fi
-
-  # Import the CSV data into PostgreSQL
-  psql -h $PG_HOST -p $PG_PORT -U $PG_USER -d $PG_DB -c "\copy $table_name FROM '${table_name}.csv' WITH CSV HEADER"
-
-  # Check if the import was successful
-  if [ $? -ne 0 ]; then
-    echo "Error importing table $table_name into PostgreSQL."
-    exit 1
-  fi
-
-  # Clean up the temporary CSV file
-  rm -f ${table_name}.csv
-
-  echo "Table $table_name migrated successfully."
-}
-
-# Iterate over the tables and migrate them
-for table in "${TABLES[@]}"; do
-  migrate_table $table
 done
 
-# Unset the PostgreSQL password for security
-unset PGPASSWORD
+echo "SQLite dump completed!"
 
-echo "Data migration completed successfully!"
+# Step 2: Copy CSV files into PostgreSQL container
+echo "Copying CSV files to the container..."
+docker cp $OUTPUT_DIR/. $CONTAINER_NAME:$CSV_DIR > /dev/null 2>&1
+
+echo "CSV files copied to the container!"
+
+# Step 3: Load CSV files into PostgreSQL
+echo "Loading CSV files into PostgreSQL..."
+
+for table in $tables; do
+    echo "Loading $table into PostgreSQL..."
+    docker exec -i $CONTAINER_NAME psql -U $USER -d $DB_NAME -c "\COPY $table FROM '$CSV_DIR/$table.csv' DELIMITER ',' CSV HEADER;" > /dev/null 2>&1
+done
+
+echo "PostgreSQL loading completed!"
