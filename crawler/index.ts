@@ -502,7 +502,7 @@ program
       },
       null
     >(
-      'SELECT address, points + points_l1 + points_l2 as points FROM user_points_public',
+      'SELECT address, sum(points + points_l1 + points_l2) as points FROM user_points_public group by address',
     );
     const publicPoints = publicPointsQuery.all(null);
 
