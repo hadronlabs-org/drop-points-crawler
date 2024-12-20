@@ -831,6 +831,16 @@ kycCli
   });
 
 const debugCli = program.command('debug').description('Debug commands');
+
+debugCli
+  .command('get_multiplier')
+  .argument('<protocol_id>', 'Protocol id')
+  .argument('<batch_id>', 'Batch id')
+  .action((protocolId, batchId) => {
+    const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
+    logger.info('Multipliers for protocol %s: %o', protocolId, multipliers);
+  });
+
 debugCli
   .command('crawl')
   .description('Get user data on the defined source and batch id')
