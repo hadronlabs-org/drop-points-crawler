@@ -22,7 +22,7 @@ const getDroplets =
         .query<
           { points: number; change: number; place: number },
           [string]
-        >('SELECT sum(points + points_l1 + points_l2) as points, change, place FROM user_points_public WHERE address = ? GROUP BY address')
+        >('SELECT sum(points + points_l1 + points_l2) as points, sum(change), place FROM user_points_public WHERE address = ? GROUP BY address')
         .get(address);
     } catch (e) {
       logger.error(
