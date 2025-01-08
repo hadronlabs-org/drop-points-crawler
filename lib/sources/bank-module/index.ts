@@ -101,8 +101,8 @@ export default class BankModuleSource<A = { denom: string }>
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    let nextKey: undefined | Uint8Array = undefined;
     for (const [assetId, asset] of Object.entries(this.assets)) {
+      let nextKey: undefined | Uint8Array = undefined;
       do {
         const { results, nextKey: newNextKey } = await this.getDenomBalances(
           asset,

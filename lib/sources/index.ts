@@ -13,6 +13,7 @@ import AmuletSource from './amulet';
 import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
 import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
+import MarginedSource from './margined';
 
 const out = {
   neutron: BankModuleSource,
@@ -28,6 +29,7 @@ const out = {
   nolus: NolusSource,
   demex: DemexSource,
   pryzm: PryzmSource,
+  margined: MarginedSource,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,
   'liquidity-alliance': LiquidityAllianceSource,
