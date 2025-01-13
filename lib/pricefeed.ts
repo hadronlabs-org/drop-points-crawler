@@ -76,15 +76,20 @@ export default class PriceFeed {
       parseInt(pythPriceResult.price_feed.price.price, 10) *
       10 ** pythPriceResult.price_feed.price.expo;
     this.logger.debug(`Got PYTH price for %s: %d`, assetId, pythPrice);
-    const dropExchangeRateResult = await queryContractOnHeight<string>(
-      client,
-      this.params.assets[assetId.split('_')[0]].core_contract,
-      height,
-      {
-        exchange_rate: {},
-      },
-    );
-    const dropExchangeRate = parseFloat(dropExchangeRateResult);
+    const coreContract =
+      this.params.assets[assetId.split('_')[0]].core_contract;
+    let dropExchangeRate = 1;
+    if (coreContract) {
+      const dropExchangeRateResult = await queryContractOnHeight<string>(
+        client,
+        coreContract,
+        height,
+        {
+          exchange_rate: {},
+        },
+      );
+      dropExchangeRate = parseFloat(dropExchangeRateResult);
+    }
     this.logger.debug(
       `Got DROP exchange rate for %s: %d`,
       assetId,
