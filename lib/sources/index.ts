@@ -13,6 +13,7 @@ import AmuletSource from './amulet';
 import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
 import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
+import MilkyWaySource from './milkyway';
 
 const out = {
   neutron: BankModuleSource,
@@ -27,6 +28,7 @@ const out = {
   apollo: ApolloSource,
   nolus: NolusSource,
   demex: DemexSource,
+  milkyway: MilkyWaySource,
   pryzm: PryzmSource,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,

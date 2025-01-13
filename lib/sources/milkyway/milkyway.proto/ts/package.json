@@ -1,0 +1,68 @@
+{
+  "name": "@milkywaylabs/milkyway.proto",
+  "version": "2.0.2",
+  "description": "JS and TS types relating to Protocol Buffers used by the MilkyWay chain",
+  "contributors": [
+    "Manuel Turetta <manuel@milkyway.zone>",
+    "Riccardo Montagnin <riccardo@milkyway.zone>"
+  ],
+  "license": "Apache-2.0",
+  "source": "src/index.ts",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "types/index.d.ts",
+  "directories": {
+    "lib": "src",
+    "test": "__tests__"
+  },
+  "files": [
+    "types",
+    "dist/cjs",
+    "dist/esm"
+  ],
+  "scripts": {
+    "build:bundle": "ts-node scripts/build.ts",
+    "build:types": "tsc",
+    "build": "npm build:bundle &&  ",
+    "codegen": "npm run codegen:cleanup && npm run codegen:clone && npm run codegen:build-cosmos-sdk && npm run codegen:build-ibc-go && npm run codegen:build-milkyway && npm run codegen:run",
+    "codegen:cleanup": "cross-env rm -rf src/codegen scripts/proto scripts/repos",
+    "codegen:clone": "cross-env NODE_ENV=development ts-node scripts/clone_repos.ts",
+    "codegen:build-milkyway": "buf export scripts/repos/milkyway --output=scripts/proto",
+    "codegen:build-cosmos-sdk": "buf export scripts/repos/cosmos-sdk --output=scripts/proto",
+    "codegen:build-ibc-go": "buf export scripts/repos/ibc-go --output=scripts/proto",
+    "codegen:run": "cross-env NODE_ENV=development ts-node scripts/codegen.ts",
+    "prepare": "npm run codegen && npm run build:bundle"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/milkyway-lab/milkyway-proto/tree/main/ts"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.2",
+    "@cosmjs/amino": "0.32.4",
+    "@cosmjs/encoding": "0.32.4",
+    "@cosmjs/math": "0.32.4",
+    "@cosmjs/proto-signing": "0.32.4",
+    "@cosmjs/stargate": "0.32.4",
+    "@cosmjs/tendermint-rpc": "0.32.4",
+    "@cosmjs/utils": "0.32.4",
+    "@cosmology/lcd": "0.13.4",
+    "@noble/hashes": "1.4.0",
+    "bech32": "2.0.0",
+    "cosmjs-types": "0.9.0"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.47.2",
+    "@cosmology/telescope": "1.8.3",
+    "@types/node": "^15.6.2",
+    "cross-env": "7.0.2",
+    "esbuild": "0.23.0",
+    "esbuild-node-externals": "1.14.0",
+    "prettier": "^3.0.3",
+    "ts-node": "latest",
+    "typescript": "~5.2"
+  }
+}
