@@ -20,7 +20,7 @@ const postLink =
       input: { localAddress, remoteAddress, network, sign },
     } = req;
 
-    if (network !== 'etherium') {
+    if (network !== 'ethereum') {
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'Invalid network',
