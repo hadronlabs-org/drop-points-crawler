@@ -9,6 +9,8 @@ import { verifyMessage } from 'viem';
 import { insertLinkRecord } from '../../../lib/link';
 import { TRPC_ERROR_CODE_KEY } from '@trpc/server/rpc';
 
+const ETHEREUM_NETWORK = 'ethereum';
+
 function isHexString(value: string): value is `0x${string}` {
   return value.startsWith('0x');
 }
@@ -20,7 +22,7 @@ const postLink =
       input: { localAddress, remoteAddress, network, sign },
     } = req;
 
-    if (network !== 'ethereum') {
+    if (network !== ETHEREUM_NETWORK) {
       throw new TRPCError({
         code: 'CONFLICT',
         message: 'Invalid network',
