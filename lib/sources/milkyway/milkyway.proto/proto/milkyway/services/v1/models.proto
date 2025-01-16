@@ -1,0 +1,85 @@
+syntax = "proto3";
+package milkyway.services.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/base/v1beta1/coin.proto";
+
+option go_package = "github.com/milkyway-labs/milkyway/v2/x/services/types";
+option (gogoproto.goproto_getters_all) = false;
+
+// ServiceStatus defines the status of a service
+enum ServiceStatus {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  // SERVICE_STATUS_UNSPECIFIED defines an unspecified status
+  SERVICE_STATUS_UNSPECIFIED = 0;
+
+  // SERVICE_STATUS_CREATED identifies a recently created service that is not
+  // yet active
+  SERVICE_STATUS_CREATED = 1;
+
+  // SERVICE_STATUS_ACTIVE identifies an active service
+  SERVICE_STATUS_ACTIVE = 2;
+
+  // SERVICE_STATUS_INACTIVE identifies an inactive service
+  SERVICE_STATUS_INACTIVE = 3;
+}
+
+// Service defines the fields of a service
+message Service {
+  // ID is the unique identifier of the service
+  uint32 id = 1 [ (gogoproto.customname) = "ID" ];
+
+  // Status is the status of the service
+  ServiceStatus status = 2;
+
+  // Admin is the address of the user that has administrative power over the
+  // service
+  string admin = 3 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Name is the name of the service
+  string name = 4;
+
+  // Description is the description of the service
+  string description = 5;
+
+  // Website is the website of the service
+  string website = 6;
+
+  // PictureURL is the URL of the picture of the service
+  string picture_url = 7 [ (gogoproto.customname) = "PictureURL" ];
+
+  // Address is the address of the account associated with the service.
+  // This will be used in order to store all the tokens that are delegated to
+  // this service by various users.
+  string address = 8 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Tokens define the delegated tokens.
+  repeated cosmos.base.v1beta1.Coin tokens = 9 [
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins",
+    (gogoproto.nullable) = false
+  ];
+
+  // DelegatorShares define the total shares issued to a service's delegators.
+  repeated cosmos.base.v1beta1.DecCoin delegator_shares = 10 [
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.DecCoins",
+    (gogoproto.nullable) = false
+  ];
+
+  // Accredited defines if the service is accredited.
+  // Note: We use this term instead of "trusted" of "verified" in order to
+  // represent something more generic.
+  // Initially, services will be accredited by the on-chain governance process.
+  // In the future, we may add more ways to accredit services (e.g. automatic
+  // ones based on the operators that decide to run the service, or the amount
+  // of cryptoeconomic security that the service was able to capture).
+  bool accredited = 11;
+}
+
+// ServiceParams defines the parameters of a service
+message ServiceParams {
+  // AllowedDenoms defines the list of denoms that can be restaked toward
+  // the service. If the list is empty, any denom can be used.
+  repeated string allowed_denoms = 1;
+}

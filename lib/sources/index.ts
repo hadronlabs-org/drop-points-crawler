@@ -14,6 +14,7 @@ import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
 import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
 import { StargazeNFT } from './stargaze';
+import MilkyWaySource from './milkyway';
 
 const out = {
   neutron: BankModuleSource,
@@ -28,6 +29,7 @@ const out = {
   apollo: ApolloSource,
   nolus: NolusSource,
   demex: DemexSource,
+  milkyway: MilkyWaySource,
   pryzm: PryzmSource,
   stargaze: StargazeNFT,
   'osmosis-lp': OsmosisLPSource,

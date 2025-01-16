@@ -1,0 +1,374 @@
+syntax = "proto3";
+package milkyway.restaking.v1;
+
+import "google/protobuf/timestamp.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos/msg/v1/msg.proto";
+import "gogoproto/gogo.proto";
+import "milkyway/restaking/v1/params.proto";
+import "milkyway/restaking/v1/models.proto";
+
+option go_package = "github.com/milkyway-labs/milkyway/v2/x/restaking/types";
+
+// Msg defines the restaking module's gRPC message service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // JoinService defines the operation that allows the operator admin
+  // to start securing an AVS
+  rpc JoinService(MsgJoinService) returns (MsgJoinServiceResponse);
+
+  // LeaveService defines the operation that allows the operator admin
+  // to stop securing an AVS
+  rpc LeaveService(MsgLeaveService) returns (MsgLeaveServiceResponse);
+
+  // AddOperatorToAllowList defines the operation that allows the service admin
+  // to add an operator to the list of allowed operator to secure the service
+  rpc AddOperatorToAllowList(MsgAddOperatorToAllowList)
+      returns (MsgAddOperatorToAllowListResponse);
+
+  // RemoveOperatorFromAllowlist defines the operation that allows the service
+  // admin to remove a previously added operator from the list of allowed
+  // operators to secure the service
+  rpc RemoveOperatorFromAllowlist(MsgRemoveOperatorFromAllowlist)
+      returns (MsgRemoveOperatorFromAllowlistResponse);
+
+  // BorrowPoolSecurity defines the operation that allows the service admin
+  // to add a pool to the list of pools from which the service has chosen
+  // to borrow security.
+  rpc BorrowPoolSecurity(MsgBorrowPoolSecurity)
+      returns (MsgBorrowPoolSecurityResponse);
+
+  // CeasePoolSecurityBorrow defines the operation that allows the service admin
+  // to remove a pool from the list of pools from which the service has chosen
+  // to borrow security.
+  rpc CeasePoolSecurityBorrow(MsgCeasePoolSecurityBorrow)
+      returns (MsgCeasePoolSecurityBorrowResponse);
+
+  // DelegatePool defines the operation that allows users to delegate any amount
+  // of an asset to a pool that can then be used to provide services with
+  // cryptoeconomic security.
+  rpc DelegatePool(MsgDelegatePool) returns (MsgDelegatePoolResponse);
+
+  // DelegateOperator defines the operation that allows users to delegate their
+  // assets to a specific operator.
+  rpc DelegateOperator(MsgDelegateOperator)
+      returns (MsgDelegateOperatorResponse);
+
+  // DelegateService defines the operation that allows users to delegate their
+  // assets to a specific service.
+  rpc DelegateService(MsgDelegateService) returns (MsgDelegateServiceResponse);
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters.
+  // The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // UndelegatePool defines the operation that allows users to undelegate their
+  // assets from a pool.
+  rpc UndelegatePool(MsgUndelegatePool) returns (MsgUndelegateResponse);
+
+  // UndelegateOperator defines the operation that allows users to undelegate
+  // their assets from a specific operator.
+  rpc UndelegateOperator(MsgUndelegateOperator) returns (MsgUndelegateResponse);
+
+  // UndelegateService defines the operation that allows users to undelegate
+  // their assets from a specific service.
+  rpc UndelegateService(MsgUndelegateService) returns (MsgUndelegateResponse);
+
+  // SetUserPreferences defines the operation that allows users to set their
+  // preferences for the restaking module.
+  rpc SetUserPreferences(MsgSetUserPreferences)
+      returns (MsgSetUserPreferencesResponse);
+}
+
+// MsgJoinService defines the message structure for the
+// JoinService gRPC service method. It allows the operator admin to
+// start securing a AVS.
+message MsgJoinService {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgJoinService";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 operator_id = 2 [ (gogoproto.customname) = "OperatorID" ];
+
+  uint32 service_id = 3 [ (gogoproto.customname) = "ServiceID" ];
+}
+
+// MsgJoinServiceResponse is the return value of MsgJoinService.
+message MsgJoinServiceResponse {}
+
+// MsgLeaveService defines the message structure for the
+// LeaveService gRPC service method. It allows the operator admin to
+// stop securing a AVS.
+message MsgLeaveService {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgLeaveService";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 operator_id = 2 [ (gogoproto.customname) = "OperatorID" ];
+
+  uint32 service_id = 3 [ (gogoproto.customname) = "ServiceID" ];
+}
+
+// MsgLeaveServiceResponse is the return value of MsgLeaveService.
+message MsgLeaveServiceResponse {}
+
+// MsgAddOperatorToAllowList defines the message structure for the
+// AddOperatorToAllowList gRPC service method. It allows the service admin
+// to add an operator to the list of allowed operator to secure the service.
+message MsgAddOperatorToAllowList {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgAddOperatorToAllowList";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  uint32 operator_id = 3 [ (gogoproto.customname) = "OperatorID" ];
+}
+
+// MsgAddOperatorToAllowListResponse is the return value of
+// MsgAddOperatorToAllowList.
+message MsgAddOperatorToAllowListResponse {}
+
+// MsgRemoveOperatorFromAllowlist defines the message structure for the
+// RemoveOperatorFromAllowlist gRPC service method. It allows the service admin
+// to remove a previously added operator from the list of allowed operators
+// to secure the service.
+message MsgRemoveOperatorFromAllowlist {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgRemoveOperatorFromAllowlist";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  uint32 operator_id = 3 [ (gogoproto.customname) = "OperatorID" ];
+}
+
+// MsgRemoveOperatorFromAllowlistResponse is the return value of
+// MsgRemoveOperatorFromAllowlist.
+message MsgRemoveOperatorFromAllowlistResponse {}
+
+// MsgBorrowPoolSecurity defines the message structure for the
+// BorrowPoolSecurity gRPC service method. It allows the service admin
+// to add a pool to the list of pools from which the service has chosen
+// to borrow security.
+message MsgBorrowPoolSecurity {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgBorrowPoolSecurity";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  uint32 pool_id = 3 [ (gogoproto.customname) = "PoolID" ];
+}
+
+// MsgBorrowPoolSecurityResponse is the return value of MsgBorrowPoolSecurity.
+message MsgBorrowPoolSecurityResponse {}
+
+// MsgCeasePoolSecurityBorrow defines the message structure for the
+// CeaseBorrowPoolSecurity gRPC service method. It allows the service admin
+// to remove a pool from the list of pools from which the service has chosen
+// to borrow security.
+message MsgCeasePoolSecurityBorrow {
+  option (cosmos.msg.v1.signer) = "sender";
+  option (amino.name) = "milkyway/MsgCeasePoolSecurityBorrow";
+
+  string sender = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  uint32 pool_id = 3 [ (gogoproto.customname) = "PoolID" ];
+}
+
+// MsgCeasePoolSecurityBorrowResponse is the return value of
+// MsgCeasePoolSecurityBorrow.
+message MsgCeasePoolSecurityBorrowResponse {}
+
+// MsgDelegatePool defines the message structure for the DelegatePool gRPC
+// service method. It allows a user to put their assets into a restaking pool
+// that will later be used to provide cryptoeconomic security to services that
+// choose it.
+message MsgDelegatePool {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgDelegatePool";
+
+  // Delegator is the address of the user joining the pool
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Amount is the amount of coins to be staked
+  cosmos.base.v1beta1.Coin amount = 2
+      [ (gogoproto.customname) = "Amount", (gogoproto.nullable) = false ];
+}
+
+// MsgDelegatePoolResponse defines the return value of MsgDelegatePool.
+message MsgDelegatePoolResponse {}
+
+// MsgDelegateOperator defines the message structure for the DelegateOperator
+// gRPC service method. It allows a user to delegate their assets to an
+// operator.
+message MsgDelegateOperator {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgDelegateOperator";
+
+  // Delegator is the address of the user delegating to the operator
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // OperatorID is the ID of the operator to delegate to
+  uint32 operator_id = 2 [ (gogoproto.customname) = "OperatorID" ];
+
+  // Amount is the amount of coins to be delegated
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins",
+    (gogoproto.customname) = "Amount",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgDelegateOperatorResponse is the return value of MsgDelegateOperator.
+message MsgDelegateOperatorResponse {}
+
+// MsgDelegateService defines the message structure for the DelegateService gRPC
+// service method. It allows a user to delegate their assets to a service.
+message MsgDelegateService {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgDelegateService";
+
+  // Delegator is the address of the user delegating to the service
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // ServiceID is the ID of the service to delegate to
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  // Amount is the amount of coins to be delegated
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins",
+    (gogoproto.customname) = "Amount",
+    (gogoproto.nullable) = false
+  ];
+}
+
+// MsgDelegateServiceResponse is the return value of MsgDelegateService.
+message MsgDelegateServiceResponse {}
+
+// MsgUpdateParams defines the message structure for the UpdateParams gRPC
+// service method. It allows the authority to update the module parameters.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "milkyway/restaking/MsgUpdateParams";
+
+  // Authority is the address that controls the module (defaults to x/gov unless
+  // overwritten).
+  string authority = 1 [
+    (gogoproto.moretags) = "yaml:\"authority\"",
+    (cosmos_proto.scalar) = "cosmos.AddressString"
+  ];
+
+  // Params define the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [ (gogoproto.nullable) = false ];
+}
+
+// MsgUpdateParamsResponse is the return value of MsgUpdateParams.
+message MsgUpdateParamsResponse {}
+
+// MsgUndelegatePool the message structure for the UndelegatePool gRPC service
+// method. It allows a user to undelegate their assets from a restaking pool.
+message MsgUndelegatePool {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgUndelegatePool";
+
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // Delegator is the address of the user undelegating from the pool.
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Amount is the amount of coins to be undelegated.
+  cosmos.base.v1beta1.Coin amount = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+// MsgUndelegateOperator the message structure for the UndelegateOperator gRPC
+// service method. It allows a user to undelegate their assets from a restaking
+// operator.
+message MsgUndelegateOperator {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgUndelegateOperator";
+
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // Delegator is the address of the user undelegating from the operator.
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // OperatorID is the ID of the operator to undelegate from.
+  uint32 operator_id = 2 [ (gogoproto.customname) = "OperatorID" ];
+
+  // Amount is the amount of coins to be undelegated.
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// MsgUndelegateService the message structure for the UndelegateService gRPC
+// service method. It allows a user to undelegate their assets from a restaking
+// service.
+message MsgUndelegateService {
+  option (cosmos.msg.v1.signer) = "delegator";
+  option (amino.name) = "milkyway/MsgUndelegateService";
+
+  option (gogoproto.equal) = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // Delegator is the address of the user undelegating from the service.
+  string delegator = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // ServiceID is the ID of the service to undelegate from.
+  uint32 service_id = 2 [ (gogoproto.customname) = "ServiceID" ];
+
+  // Amount is the amount of coins to be undelegated.
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// MsgUndelegateResponse defines the response type for the undelegation methods.
+message MsgUndelegateResponse {
+  // CompletionTime represents the time at which the undelegation will be
+  // complete
+  google.protobuf.Timestamp completion_time = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true,
+    (gogoproto.stdtime) = true
+  ];
+}
+
+// MsgSetUserPreferences is the message structure for the SetUserPreferences
+// gRPC service method. It allows a user to set their preferences for the
+// restaking module.
+message MsgSetUserPreferences {
+  option (cosmos.msg.v1.signer) = "user";
+  option (amino.name) = "milkyway/MsgSetUserPreferences";
+
+  // User is the address of the user setting their preferences
+  string user = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Preferences is the user's preferences
+  UserPreferences preferences = 2 [ (gogoproto.nullable) = false ];
+}
+
+// MsgSetUserPreferencesResponse is the return value of MsgSetUserPreferences.
+message MsgSetUserPreferencesResponse {}
