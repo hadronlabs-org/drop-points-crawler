@@ -3,16 +3,25 @@ import express from 'express';
 import toml from 'toml';
 import fs from 'fs';
 
+import { connect } from '../db';
+import { Command } from 'commander';
+
 import { publicProcedure, router } from './trpc';
+import { getRegistry } from './prometeus';
 
 import { getDroplets } from './controllers/getDroplets';
-import { postKyc } from './controllers/postKyc';
 import { getReferralCode } from './controllers/getReferralCode';
 import { getReferrer } from './controllers/getReferrer';
 import { getReferrals } from './controllers/getReferrals';
 import { getRules } from './controllers/getRules';
 import { getStakerStatus } from './controllers/getStakerStatus';
 import { getLogger } from '../lib/logger';
+import { getKVData } from './controllers/getKVData';
+
+import { postKVData } from './controllers/postKVData';
+import { postLink } from './controllers/postLink';
+import { postKyc } from './controllers/postKyc';
+
 import {
   tRPCGetDropletsRequestSchema,
   tRPCGetDropletsResponseSchema,
@@ -34,15 +43,10 @@ import {
   tRPCGetReferralsResponseSchema,
 } from '../types/tRPC/tRPCGetReferrals';
 import { tRPCGetRulesResponseSchema } from '../types/tRPC/tRPCGetRules';
-import { connect } from '../db';
-import { Command } from 'commander';
-import { getRegistry } from './prometeus';
 import {
   tRPCPostKVDataRequestSchema,
   tRPCPostKVDataResponseSchema,
 } from '../types/tRPC/tRPCPostKVData';
-import { postKVData } from './controllers/postKVData';
-import { getKVData } from './controllers/getKVData';
 import {
   tRPCGetKVDataRequestSchema,
   tRPCGetKVDataResponseSchema,
@@ -51,6 +55,10 @@ import {
   tRPCGetStakerStatusRequestSchema,
   tRPCGetStakerStatusResponseSchema,
 } from '../types/tRPC/tRPCGetStakerStatus';
+import {
+  tRPCPostLinkRequestSchema,
+  tRPCPostLinkResponseSchema,
+} from '../types/tRPC/tRPCPostLink';
 
 const expressApp = express();
 
@@ -79,6 +87,10 @@ const appRouter = router({
     .input(tRPCPostKVDataRequestSchema)
     .output(tRPCPostKVDataResponseSchema)
     .mutation(postKVData(db, logger)),
+  postLink: publicProcedure
+    .input(tRPCPostLinkRequestSchema)
+    .output(tRPCPostLinkResponseSchema)
+    .mutation(postLink(db, logger)),
   getKVData: publicProcedure
     .input(tRPCGetKVDataRequestSchema)
     .output(tRPCGetKVDataResponseSchema)

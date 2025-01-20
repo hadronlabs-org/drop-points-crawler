@@ -86,6 +86,19 @@ export const connect = (
     db.exec(
       'CREATE TABLE IF NOT EXISTS kvstore (key TEXT PRIMARY KEY, value TEXT);',
     );
+    db.exec(`CREATE TABLE IF NOT EXISTS user_network_link (
+        network TEXT NOT NULL,
+        remote_address TEXT NOT NULL,
+        local_address TEXT NOT NULL,
+        ts NUMBERIC NOT NULL
+      );
+    `);
+    db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS user_network_link_network_IDX ON user_network_link (network,remote_address,local_address);`,
+    );
+    db.exec(
+      `CREATE INDEX IF NOT EXISTS user_network_link_network_rev_IDX ON user_network_link (network,local_address,remote_address);`,
+    );
     db.exec(
       'CREATE INDEX IF NOT EXISTS schedule_protocol_id_asset_id ON schedule (protocol_id, asset_id);',
     );
