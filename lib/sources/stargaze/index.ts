@@ -8,6 +8,8 @@ interface TokensResponse {
   tokens: string[];
 }
 
+const PAGINATION_LIMIT = 100;
+
 export class StargazeNFT extends NFTBase {
   concurrencyLimit: number;
   constructor(rpc: string, logger: Logger<never>, params: any) {
@@ -29,12 +31,12 @@ export class StargazeNFT extends NFTBase {
         {
           all_tokens: {
             start_after,
-            limit: 100,
+            limit: PAGINATION_LIMIT,
           },
         },
       );
       out.push(...data.tokens);
-      if (data.tokens.length < 100) {
+      if (data.tokens.length < PAGINATION_LIMIT) {
         break;
       }
       start_after = data.tokens[data.tokens.length - 1];
