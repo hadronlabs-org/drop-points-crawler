@@ -286,11 +286,11 @@ program
             'INSERT INTO nft_data (batch_id, address, asset_id, collection, amount) VALUES (?, ?, ?, ?, ?)',
           );
           for (const { address, asset_id, amount } of all) {
-            if (config.protocols[protocolId].linked_address) {
+            if (config.protocols[protocolId].linked_address_network) {
               logger.trace(
                 'Checking linked address for %s [%s] - %s',
                 address,
-                config.protocols[protocolId].linked_address,
+                config.protocols[protocolId].linked_address_network,
                 ts,
               );
               const row = db
@@ -298,7 +298,11 @@ program
                   { local_address: string },
                   [string, string, number]
                 >('SELECT local_address FROM user_network_link WHERE upper(remote_address) = upper(?) and network = ? and ts <= ? LIMIT 1')
-                .get(address, config.protocols[protocolId].linked_address, ts);
+                .get(
+                  address,
+                  config.protocols[protocolId].linked_address_network,
+                  ts,
+                );
               logger.trace('Got linked address %o', row);
               if (row) {
                 logger.trace('Inserting linked address %s', row.local_address);
