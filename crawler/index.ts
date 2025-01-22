@@ -307,7 +307,7 @@ program
                   batchId,
                   toNeutronAddress(row.local_address),
                   asset_id,
-                  address,
+                  protocolId,
                   amount,
                 );
               }
