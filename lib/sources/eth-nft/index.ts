@@ -4,7 +4,7 @@ import { CbOnUserTokens } from '../../../types/sources/cbOnUserTokens';
 import { NFTSource } from '../../../types/sources/nft';
 /**
  * sorry bro, I've spent too much time on this already and can't get it work
- * viem seem to have comflict with our dynamic class instantiation in the crawler index.ts
+ * viem seem to have conflict with our dynamic class instantiation in the crawler index.ts
  * */
 const viem = require('viem');
 
