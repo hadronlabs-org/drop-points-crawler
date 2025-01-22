@@ -59,6 +59,11 @@ import {
   tRPCPostLinkRequestSchema,
   tRPCPostLinkResponseSchema,
 } from '../types/tRPC/tRPCPostLink';
+import {
+  tRPCGetNFTCollectionResponseSchema,
+  tRPCGetNFTCollectionsRequestSchema,
+} from '../types/tRPC/tRPCGetNFTCollections';
+import { getNFTCollections } from './controllers/getNFTCollections';
 
 const expressApp = express();
 
@@ -114,6 +119,10 @@ const appRouter = router({
   getRules: publicProcedure
     .output(tRPCGetRulesResponseSchema)
     .query(getRules(db, logger)),
+  getNFTCollections: publicProcedure
+    .input(tRPCGetNFTCollectionsRequestSchema)
+    .output(tRPCGetNFTCollectionResponseSchema)
+    .query(getNFTCollections(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;

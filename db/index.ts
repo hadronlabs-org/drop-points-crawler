@@ -40,10 +40,13 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, referral_code TEXT NOT NULL UNIQUE, kyc_id TEXT NOT NULL, kyc_provider TEXT NOT NULL, ts INTEGER);',
     );
     db.exec(
+      'CREATE TABLE IF NOT EXISTS nft_data (batch_id INTEGER, address TEXT, asset_id TEXT, collection TEXT, multiplier NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+    );
+    db.exec(
       'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, height NUMERIC, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+      'CREATE TABLE IF NOT EXISTS user_points (batch_id INTEGER, address TEXT, asset_id TEXT, points NUMERIC, nft_mul NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
     );
     db.exec(
       `CREATE TABLE IF NOT EXISTS user_points_public 
@@ -110,6 +113,9 @@ export const connect = (
       'CREATE UNIQUE INDEX IF NOT EXISTS referral_referrer_referal ON referrals (referrer, referral);',
     );
     db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS nft_data_uniq_idx ON nft_data (batch_id, address, asset_id, collection);',
+    );
+    db.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS kyc_provider_id ON user_kyc (kyc_id, kyc_provider);',
     );
 
@@ -129,9 +135,10 @@ export const connect = (
             'INSERT INTO schedule (protocol_id, asset_id, multiplier, start, end, enabled) VALUES (?, ?, ?, ?, ?, ?)',
             [protocol_id, asset_id, assetObject.multiplier, 0, 0, true],
           );
-
+          logger.debug('Inserted schedule for %s %s', protocol_id, asset_id);
           let dropletRule;
           try {
+            logger.debug('Inserting droplet rule for %s', asset_id);
             dropletRule = getValidData(
               {
                 strategy: assetObject.frontend_data.strategy,
@@ -148,25 +155,29 @@ export const connect = (
               dropletRuleSchema,
               logger,
             );
+            db.exec(
+              'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+              [
+                dropletRule.strategy,
+                dropletRule.description,
+                dropletRule.multiplier,
+                dropletRule.chain,
+                dropletRule.status,
+                dropletRule.link,
+                dropletRule.link_text,
+                dropletRule.type,
+                dropletRule.featured,
+                dropletRule.visible,
+              ],
+            );
           } catch (e) {
+            logger.warn(
+              'Error inserting droplet rule for %s %s',
+              protocol_id,
+              asset_id,
+            );
             continue;
           }
-
-          db.exec(
-            'INSERT INTO user_points_rules (strategy, description, multiplier, chain, status, link, link_text, type, featured, visible) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              dropletRule.strategy,
-              dropletRule.description,
-              dropletRule.multiplier,
-              dropletRule.chain,
-              dropletRule.status,
-              dropletRule.link,
-              dropletRule.link_text,
-              dropletRule.type,
-              dropletRule.featured,
-              dropletRule.visible,
-            ],
-          );
         }
       }
     }

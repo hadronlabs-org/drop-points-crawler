@@ -13,7 +13,9 @@ import AmuletSource from './amulet';
 import LiquidityAllianceCompounderSource from './liquidity-alliance-compounder';
 import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
+import StargazeNFT from './stargaze';
 import MilkyWaySource from './milkyway';
+import ETHNFT from './eth-nft';
 
 const out = {
   neutron: BankModuleSource,
@@ -30,9 +32,11 @@ const out = {
   demex: DemexSource,
   milkyway: MilkyWaySource,
   pryzm: PryzmSource,
+  stargaze: StargazeNFT,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,
   'liquidity-alliance': LiquidityAllianceSource,
   'liquidity-alliance-compounder': LiquidityAllianceCompounderSource,
+  'eth-nft': ETHNFT,
 };
 export default out;

@@ -45,22 +45,22 @@ const getAssetMulsByProtocolAndBatchId = (
     WITH batch_ts AS (
       SELECT ts FROM batches WHERE batch_id = ?
     )
-    SELECT 
+    SELECT
       protocol_id, asset_id, multiplier
     FROM
     (
-      SELECT * FROM 
+      SELECT * FROM
         (
-          SELECT 
-            * 
+          SELECT
+            *
           FROM schedule s
-          LEFT JOIN 
+          LEFT JOIN
             batches bt ON (bt.ts > s.start AND bt.ts < s.end)
-          WHERE 
+          WHERE
             protocol_id = ? AND
             ((s.start = 0 AND s.end = 0) OR bt.ts IS NOT NULL)
           ORDER BY protocol_id, schedule_id DESC
-        ) a 
+        ) a
       GROUP BY a.protocol_id, a.asset_id
     ) b
     WHERE b.enabled = 1;
@@ -76,7 +76,7 @@ program
   .description('Prepare tasks for processing sources')
   .option('-t --timestamp <timestamp>', 'Timestamp to use')
   .option('-s --simulate', 'Just simulate the task')
-  .action(async (options) => {
+  .action((options) => {
     const ts = parseInt(
       options.timestamp || (Date.now() / 1000).toString(),
       10,
@@ -87,16 +87,16 @@ program
       [number, number]
     >(
       `
-      SELECT 
+      SELECT
         protocol_id, asset_id, multiplier
       FROM
       (
-        SELECT * FROM 
+        SELECT * FROM
           (
-              SELECT 
-                * 
+              SELECT
+                *
               FROM schedule s
-              WHERE 
+              WHERE
                 ((s.start = 0 AND s.end = 0) OR (s.start < ? AND s.end > ?))
               ORDER BY protocol_id, schedule_id DESC
         ) a GROUP BY a.protocol_id
@@ -108,82 +108,89 @@ program
       logger.info('No protocols found in the schedule');
       return;
     }
-    if (options.simulate) {
-      logger.info('Inserting tasks for protocols %o', protocolsInDb);
-      return;
-    }
-    const queryInsertBatch = db.prepare<{ batch_id: number }, [number, string]>(
-      'INSERT INTO batches (ts, status) VALUES (?, ?) RETURNING batch_id',
-    );
-    const batchId = queryInsertBatch.get(ts, 'new')?.batch_id;
-    if (!batchId) {
-      throw new Error('Failed to insert batch');
-    }
-    logger.info('Inserted batch %d', batchId);
-    const pricesTx = db.prepare(
-      'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
-    );
-    const assetsToGetPrice = new Set<string>();
-    const tasksTx = db.prepare(
-      'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
-    );
-
-    const timeShift = // same for all protocols bc of IBC and stuff
-      config.random && config.random === 'pseudo'
-        ? getPseudoRandom(batchId)
-        : getTrueRandom();
-
-    for (const protocol of protocolsInDb) {
-      const protocolObj = config.protocols[protocol.protocol_id];
-
-      for (const assetId of Object.keys(protocolObj.assets)) {
-        assetsToGetPrice.add(assetId);
+    const transaction = db.transaction(async () => {
+      if (options.simulate) {
+        logger.info('Inserting tasks for protocols %o', protocolsInDb);
+        return;
       }
-
-      const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
-      if (!jitter) {
-        logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
+      const queryInsertBatch = db.prepare<
+        { batch_id: number },
+        [number, string]
+      >('INSERT INTO batches (ts, status) VALUES (?, ?) RETURNING batch_id');
+      const batchId = queryInsertBatch.get(ts, 'new')?.batch_id;
+      if (!batchId) {
+        throw new Error('Failed to insert batch');
       }
+      logger.info('Inserted batch %d', batchId);
+      const pricesTx = db.prepare(
+        'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
+      );
+      const assetsToGetPrice = new Set<string>();
+      const tasksTx = db.prepare(
+        'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
+      );
 
-      const source = new sources[protocolObj.source as keyof typeof sources](
-        protocolObj.rpc,
+      const timeShift = // same for all protocols bc of IBC and stuff
+        config.random && config.random === 'pseudo'
+          ? getPseudoRandom(batchId)
+          : getTrueRandom();
+
+      for (const protocol of protocolsInDb) {
+        const protocolObj = config.protocols[protocol.protocol_id];
+
+        for (const assetId of Object.keys(protocolObj.assets)) {
+          assetsToGetPrice.add(assetId);
+        }
+
+        const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
+        if (!jitter) {
+          logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
+        }
+        if (!sources[protocolObj.source as keyof typeof sources]) {
+          logger.error('Source %s not found', protocolObj.source);
+          throw new Error('Source not found');
+        }
+        const SourceClass = sources[protocolObj.source as keyof typeof sources];
+        if (!SourceClass) {
+          throw new Error(`Invalid source type: ${protocolObj.source}`);
+        }
+        const source = new SourceClass(protocolObj.rpc, logger, protocolObj);
+        const height = await source.getLastBlockHeight();
+
+        logger.debug(
+          'Got height %d for protocol %s',
+          height,
+          protocol.protocol_id,
+        );
+
+        tasksTx.run(
+          protocol.protocol_id,
+          batchId,
+          height - jitter,
+          'new',
+          jitter,
+          ts,
+        );
+      }
+      tasksTx.finalize();
+      const priceFeed = new PriceFeed(
+        config.pricefeed.rpc,
         logger,
-        protocolObj,
+        config.pricefeed,
       );
-      const height = await source.getLastBlockHeight();
-
-      logger.debug(
-        'Got height %d for protocol %s',
-        height,
-        protocol.protocol_id,
-      );
-
-      tasksTx.run(
-        protocol.protocol_id,
-        batchId,
-        height - jitter,
-        'new',
-        jitter,
-        ts,
-      );
-    }
-    tasksTx.finalize();
-    const priceFeed = new PriceFeed(
-      config.pricefeed.rpc,
-      logger,
-      config.pricefeed,
-    );
-    const priceFeedHeight = await priceFeed.getLastHeight();
-    logger.debug('Got pricefeed height %d', priceFeedHeight);
-    for (const assetId of assetsToGetPrice) {
-      logger.debug('Getting price for asset %s', assetId);
-      const price = await priceFeed.getPrice(
-        assetId,
-        (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
-      );
-      pricesTx.run(assetId, batchId, price, ts);
-    }
-    pricesTx.finalize();
+      const priceFeedHeight = await priceFeed.getLastHeight();
+      logger.debug('Got pricefeed height %d', priceFeedHeight);
+      for (const assetId of assetsToGetPrice) {
+        logger.debug('Getting price for asset %s', assetId);
+        const price = await priceFeed.getPrice(
+          assetId,
+          (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
+        );
+        pricesTx.run(assetId, batchId, price, ts);
+      }
+      pricesTx.finalize();
+    });
+    transaction();
   });
 
 program
@@ -193,7 +200,7 @@ program
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
     // Get the batch ID and height of the task
-    const { batchId, height } = (() => {
+    const { batchId, height, ts } = (() => {
       if (options.batch_id) {
         const batchId = parseInt(options.batch_id, 10);
         if (isNaN(batchId)) {
@@ -210,7 +217,7 @@ program
           logger.info('No tasks found for batch_id %s', options.batch_id);
           throw new Error('No tasks found');
         }
-        return { batchId, height: row.height };
+        return { batchId, height: row.height, ts: row.ts };
       } else {
         const row = db
           .query<
@@ -225,6 +232,7 @@ program
         return {
           batchId: row.batch_id,
           height: row.height,
+          ts: row.ts,
         };
       }
     })();
@@ -240,33 +248,87 @@ program
     const sourceObj = new sources[
       config.protocols[protocolId].source as keyof typeof sources
     ](config.protocols[protocolId].rpc, logger, config.protocols[protocolId]);
-    await sourceObj.getUsersBalances(
-      height,
-      multipliers,
-      (balances: UserBalance[]) => {
-        const query = db.prepare<
-          unknown,
-          [number, string, string, number, string, string]
-        >(
-          'INSERT INTO user_data (batch_id, address, protocol_id, height, asset, balance) VALUES (?, ?, ?, ?, ?, ?);',
-        );
-        const insert = db.transaction((balances) => {
-          for (const balance of balances) {
-            query.run(
-              batchId,
-              toNeutronAddress(balance.address),
-              protocolId,
-              height,
-              balance.asset,
-              balance.balance,
-            );
+
+    if (isBasicSource(sourceObj)) {
+      await sourceObj.getUsersBalances(
+        height,
+        multipliers,
+        (balances: UserBalance[]) => {
+          const query = db.prepare<
+            unknown,
+            [number, string, string, number, string, string]
+          >(
+            'INSERT INTO user_data (batch_id, address, protocol_id, height, asset, balance) VALUES (?, ?, ?, ?, ?, ?);',
+          );
+          const insert = db.transaction((balances) => {
+            for (const balance of balances) {
+              query.run(
+                batchId,
+                toNeutronAddress(balance.address),
+                protocolId,
+                height,
+                balance.asset,
+                balance.balance,
+              );
+            }
+            return balances.length;
+          });
+          const res = insert(balances);
+          logger.info('Inserted %d user balances', res);
+        },
+      );
+    }
+
+    if (isNFTSource(sourceObj)) {
+      await sourceObj.getUsersTokens(height, multipliers, (all) => {
+        const transaction = db.transaction(() => {
+          const tx = db.prepare(
+            'INSERT INTO nft_data (batch_id, address, asset_id, collection, amount) VALUES (?, ?, ?, ?, ?)',
+          );
+          for (const { address, asset_id, amount } of all) {
+            if (config.protocols[protocolId].linked_address_network) {
+              logger.trace(
+                'Checking linked address for %s [%s] - %s',
+                address,
+                config.protocols[protocolId].linked_address_network,
+                ts,
+              );
+              const row = db
+                .query<
+                  { local_address: string },
+                  [string, string, number]
+                >('SELECT local_address FROM user_network_link WHERE upper(remote_address) = upper(?) and network = ? and ts <= ? LIMIT 1')
+                .get(
+                  address,
+                  config.protocols[protocolId].linked_address_network,
+                  ts,
+                );
+              logger.trace('Got linked address %o', row);
+              if (row) {
+                logger.trace('Inserting linked address %s', row.local_address);
+                tx.run(
+                  batchId,
+                  toNeutronAddress(row.local_address),
+                  asset_id,
+                  protocolId,
+                  amount,
+                );
+              }
+            } else {
+              tx.run(
+                batchId,
+                toNeutronAddress(address),
+                asset_id,
+                protocolId,
+                amount,
+              );
+            }
           }
-          return balances.length;
         });
-        const res = insert(balances);
-        logger.info('Inserted %d user balances', res);
-      },
-    );
+        transaction();
+      });
+    }
+
     // Update the status of the task to "ready"
     db.exec<[string, number]>(
       'UPDATE tasks SET status = "ready" WHERE protocol_id = ? AND batch_id = ?',
@@ -336,32 +398,41 @@ program
       // Calculate points for each user based on all sources
       db.exec<[number]>(
         `
-      INSERT 
-        INTO user_points (batch_id, address, asset_id, points)
-        SELECT 
-          batch_id, address, xasset_id asset_id, points 
+      INSERT
+        INTO user_points (batch_id, address, asset_id, points, nft_mul)
+        SELECT
+          batch_id, address, xasset_id asset_id, points,
+          COALESCE(
+          	(SELECT 1 + SUM(multiplier - 1)
+          	FROM nft_data nn
+          	WHERE
+          		nn.address = x.address AND
+          		nn.batch_id = x.batch_id AND
+          		nn.asset_id = xasset_id
+          	GROUP BY address), 1
+          ) nft_mul
         FROM
           (
-            SELECT 
-              ud.batch_id, 
-              ud.address, 
-              CASE 
-                WHEN INSTR(ud.asset, '_') > 0 
-                THEN SUBSTR(ud.asset, 1, INSTR(ud.asset, '_') - 1) 
-                ELSE ud.asset 
-				      END AS xasset_id, 
+            SELECT
+              ud.batch_id,
+              ud.address,
+              CASE
+                WHEN INSTR(ud.asset, '_') > 0
+                THEN SUBSTR(ud.asset, 1, INSTR(ud.asset, '_') - 1)
+                ELSE ud.asset
+				      END AS xasset_id,
               FLOOR(SUM(p.price * ud.balance * ${tsKf})) points
-            FROM 
+            FROM
               user_data ud
-            LEFT JOIN 
+            LEFT JOIN
               prices p ON (p.asset_id = xasset_id AND p.batch_id = ud.batch_id)
-            WHERE 
+            WHERE
               ud.batch_id = ?
             AND
               address NOT IN (select address from blacklist)
-            GROUP BY 
+            GROUP BY
               ud.batch_id, ud.address, xasset_id
-          ) x 
+          ) x
       `,
         [batchId],
       );
@@ -387,13 +458,13 @@ program
         db.exec(
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
-          SELECT 
-            address, asset_id, SUM(points) points, SUM(points) change, 0, 0, 0, 0, 0, 0
+          SELECT
+            address, asset_id, FLOOR(SUM(points * nft_mul)) points, SUM(points) change, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
             batch_id IN (${batchIds.join(',')})
-          GROUP BY 
+          GROUP BY
             address, asset_id
           ON CONFLICT (address, asset_id) DO UPDATE SET
             change = excluded.change,
@@ -407,11 +478,11 @@ program
           `
             INSERT OR IGNORE INTO user_points_public
                 (address, asset_id, points, "change", prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
-            SELECT 
+            SELECT
               r.referrer address,
-               CASE 
-                WHEN INSTR(s.asset_id, '_') > 0 
-                THEN SUBSTR(s.asset_id, 1, INSTR(s.asset_id, '_') - 1) 
+               CASE
+                WHEN INSTR(s.asset_id, '_') > 0
+                THEN SUBSTR(s.asset_id, 1, INSTR(s.asset_id, '_') - 1)
                 ELSE s.asset_id END AS asset_id,
               0 points,
               0 change,
@@ -430,15 +501,15 @@ program
         // calc L1, L2 points
         const stmt = db.prepare<null, { $ts: number }>(
           `
-          UPDATE 
+          UPDATE
             user_points_public
-          SET 
+          SET
             prev_points_l1 = points_l1,
             prev_points_l2 = points_l2,
             points_l1 = COALESCE(points_l1,0) + COALESCE((
-              SELECT 
+              SELECT
                 FLOOR(SUM(upp1.change) * ${config.l1_percent / 100})
-              FROM 
+              FROM
                 referrals r
               LEFT JOIN user_points_public upp1 ON (upp1.address = r.referral AND r.ts <= $ts)
               LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
@@ -447,9 +518,9 @@ program
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
-              SELECT 
+              SELECT
                 FLOOR(SUM(upp2.change) * ${config.l2_percent / 100})
-              FROM 
+              FROM
                 referrals r2
               LEFT JOIN referrals r3 ON (r3.referrer = r2.referral AND r3.ts <= $ts)
               LEFT JOIN user_points_public upp2 ON (upp2.address = r3.referral AND r3.ts <= $ts)
@@ -464,7 +535,7 @@ program
 
         db.exec(
           `
-            UPDATE 
+            UPDATE
               user_points_public
             SET
               change = change + (points_l1 + points_l2) - (prev_points_l1 + prev_points_l2)
@@ -875,6 +946,9 @@ debugCli
       config.protocols[protocolId].source as keyof typeof sources
     ](config.protocols[protocolId].rpc, logger, config.protocols[protocolId]);
     const matchAddress = toNeutronAddress(userAddress);
+    if (!isBasicSource(sourceObj)) {
+      throw new Error('Source is not basic');
+    }
     await sourceObj.getUsersBalances(
       height,
       multipliers,
@@ -889,3 +963,15 @@ debugCli
   });
 
 program.parse(process.argv);
+
+function isBasicSource(
+  source: any,
+): source is { getUsersBalances: () => Promise<any> } {
+  return 'getUsersBalances' in source;
+}
+
+function isNFTSource(
+  source: any,
+): source is { getUsersTokens: () => Promise<any> } {
+  return 'getUsersTokens' in source;
+}
