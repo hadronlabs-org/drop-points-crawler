@@ -494,7 +494,7 @@ program
                 0 prev_place
             FROM referrals r
             LEFT JOIN schedule s
-            GROUP BY address;
+            GROUP BY address, asset_id;
             `,
         );
 
@@ -515,6 +515,7 @@ program
               LEFT JOIN user_kyc k ON (k.address = r.referrer AND k.ts <= $ts)
               WHERE
                 r.referrer = user_points_public.address AND
+                upp1.asset_id = user_points_public.asset_id AND
                 k.address IS NOT NULL
             ),0),
             points_l2 = COALESCE(points_l2,0) + COALESCE((
@@ -527,6 +528,7 @@ program
               LEFT JOIN user_kyc k2 ON (k2.address = r2.referrer AND k2.ts <= $ts)
               WHERE
                 r2.referrer = user_points_public.address AND
+                upp2.asset_id = user_points_public.asset_id AND
                 k2.address IS NOT NULL
             ),0)
           `,
