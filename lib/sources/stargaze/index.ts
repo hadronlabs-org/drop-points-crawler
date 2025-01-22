@@ -10,7 +10,7 @@ interface TokensResponse {
 
 const PAGINATION_LIMIT = 100;
 
-export class StargazeNFT extends NFTBase {
+export default class StargazeNFT extends NFTBase {
   concurrencyLimit: number;
   constructor(rpc: string, logger: Logger<never>, params: any) {
     super(rpc, logger, params);
@@ -107,7 +107,6 @@ export class StargazeNFT extends NFTBase {
         error.message,
         error.stack,
       );
-      process.exit(1);
     }
   };
 }
