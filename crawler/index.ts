@@ -403,7 +403,7 @@ program
         SELECT
           batch_id, address, xasset_id asset_id, points,
           COALESCE(
-          	(SELECT 1 + SUM(amount - 1)
+          	(SELECT 1 + SUM(multiplier - 1)
           	FROM nft_data nn
           	WHERE
           		nn.address = x.address AND

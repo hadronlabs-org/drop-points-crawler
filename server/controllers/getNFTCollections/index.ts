@@ -25,7 +25,7 @@ const getNFTCollections =
         .query<
           { collection: string; multiplier: number },
           [string]
-        >('SELECT collection, amount multiplier FROM nft_data WHERE address = ? AND batch_id = (SELECT MAX(batch_id) FROM batches) GROUP BY address, collection')
+        >('SELECT collection, multiplier FROM nft_data WHERE address = ? AND batch_id = (SELECT MAX(batch_id) FROM batches) GROUP BY address, collection')
         .all(address);
     } catch (e) {
       logger.error(

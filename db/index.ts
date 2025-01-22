@@ -40,7 +40,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, referral_code TEXT NOT NULL UNIQUE, kyc_id TEXT NOT NULL, kyc_provider TEXT NOT NULL, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS nft_data (batch_id INTEGER, address TEXT, asset_id TEXT, collection TEXT, amount NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+      'CREATE TABLE IF NOT EXISTS nft_data (batch_id INTEGER, address TEXT, asset_id TEXT, collection TEXT, multiplier NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, height NUMERIC, ts INTEGER);',
