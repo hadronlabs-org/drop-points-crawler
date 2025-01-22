@@ -189,7 +189,6 @@ program
         pricesTx.run(assetId, batchId, price, ts);
       }
       pricesTx.finalize();
-      // NFT tasks
     });
     transaction();
   });
