@@ -399,15 +399,15 @@ program
         INTO user_points (batch_id, address, asset_id, points, nft_mul)
         SELECT
           batch_id, address, xasset_id asset_id, points,
-          EXP(COALESCE(
-          	(SELECT SUM(LN(amount))
+          COALESCE(
+          	(SELECT 1 + SUM(amount - 1)
           	FROM nft_data nn
           	WHERE
           		nn.address = x.address AND
           		nn.batch_id = x.batch_id AND
           		nn.asset_id = xasset_id
-          	GROUP BY address), 0
-          )) nft_mul
+          	GROUP BY address), 1
+          ) nft_mul
         FROM
           (
             SELECT
@@ -456,7 +456,7 @@ program
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT
-            address, asset_id, SUM(points * nft_mul) points, SUM(points) change, 0, 0, 0, 0, 0, 0
+            address, asset_id, FLOOR(SUM(points * nft_mul)) points, SUM(points) change, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE

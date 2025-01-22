@@ -97,7 +97,9 @@ export default class ETHNFT implements NFTSource {
         withConcurrencyLimit(() =>
           this.getTokenOwner(token_id, BigInt(height)).then((owner) => {
             out.add(owner);
-            this.logger.debug('Got token %s owner %s', token_id, owner);
+            this.logger.trace('Got token %s owner %s', token_id, owner);
+            !(token_id % 100) &&
+              this.logger.debug('Got token %s owner %s', token_id, owner);
           }),
         ),
       ),
