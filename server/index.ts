@@ -64,6 +64,11 @@ import {
   tRPCGetNFTCollectionsRequestSchema,
 } from '../types/tRPC/tRPCGetNFTCollections';
 import { getNFTCollections } from './controllers/getNFTCollections';
+import {
+  tRPCGetLinksRequestSchema,
+  tRPCGetLinksResponseSchema,
+} from '../types/tRPC/tRPCGetLinks';
+import { getLinks } from './controllers/getLinks';
 
 const expressApp = express();
 
@@ -123,6 +128,10 @@ const appRouter = router({
     .input(tRPCGetNFTCollectionsRequestSchema)
     .output(tRPCGetNFTCollectionResponseSchema)
     .query(getNFTCollections(db, logger)),
+  getLinks: publicProcedure
+    .input(tRPCGetLinksRequestSchema)
+    .output(tRPCGetLinksResponseSchema)
+    .query(getLinks(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;
