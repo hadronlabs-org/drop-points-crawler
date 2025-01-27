@@ -283,7 +283,7 @@ program
       await sourceObj.getUsersTokens(height, multipliers, (all) => {
         const transaction = db.transaction(() => {
           const tx = db.prepare(
-            'INSERT INTO nft_data (batch_id, address, asset_id, collection, multiplier) VALUES (?, ?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO nft_data (batch_id, address, asset_id, collection, multiplier) VALUES (?, ?, ?, ?, ?)',
           );
           for (const { address, asset_id, amount } of all) {
             if (config.protocols[protocolId].linked_address_network) {
