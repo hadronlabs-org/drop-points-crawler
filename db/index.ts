@@ -40,7 +40,7 @@ export const connect = (
       'CREATE TABLE IF NOT EXISTS user_kyc (address TEXT PRIMARY KEY, referral_code TEXT NOT NULL UNIQUE, kyc_id TEXT NOT NULL, kyc_provider TEXT NOT NULL, ts INTEGER);',
     );
     db.exec(
-      'CREATE TABLE IF NOT EXISTS nft_data (batch_id INTEGER, address TEXT, asset_id TEXT, collection TEXT, multiplier NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id));',
+      'CREATE TABLE IF NOT EXISTS nft_data (batch_id INTEGER, address TEXT, asset_id TEXT, collection TEXT, multiplier NUMERIC, PRIMARY KEY(batch_id DESC, address, asset_id, collection));',
     );
     db.exec(
       'CREATE TABLE IF NOT EXISTS referrals (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer TEXT, referral TEXT, height NUMERIC, ts INTEGER);',
@@ -111,9 +111,6 @@ export const connect = (
     );
     db.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS referral_referrer_referal ON referrals (referrer, referral);',
-    );
-    db.exec(
-      'CREATE UNIQUE INDEX IF NOT EXISTS nft_data_uniq_idx ON nft_data (batch_id, address, asset_id, collection);',
     );
     db.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS kyc_provider_id ON user_kyc (kyc_id, kyc_provider);',
