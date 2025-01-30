@@ -21,11 +21,19 @@ import { getPseudoRandom, getTrueRandom } from './random';
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
 
+program.option('--log_level <log_level>', 'Log level');
+program.parse(process.argv);
+
 const config = toml.parse(
   fs.readFileSync(program.getOptionValue('config'), 'utf-8'),
 );
+
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
+}
+
+if (program.getOptionValue('log_level')) {
+  config.log_level = program.getOptionValue('log_level');
 }
 
 validateOnChainContractInfo(config);
