@@ -22,7 +22,7 @@ const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
 
 program.option('--log_level <log_level>', 'Log level');
-program.parse(process.argv);
+//program.parse(process.argv);
 
 const config = toml.parse(
   fs.readFileSync(program.getOptionValue('config'), 'utf-8'),
