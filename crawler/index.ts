@@ -21,19 +21,12 @@ import { getPseudoRandom, getTrueRandom } from './random';
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
 
-program.option('--log_level <log_level>', 'Log level');
-//program.parse(process.argv);
-
 const config = toml.parse(
   fs.readFileSync(program.getOptionValue('config'), 'utf-8'),
 );
 
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
-}
-
-if (program.getOptionValue('log_level')) {
-  config.log_level = program.getOptionValue('log_level');
 }
 
 validateOnChainContractInfo(config);
@@ -909,6 +902,30 @@ kycCli
         new Date(row.ts * 1000).toISOString(),
       );
     }
+  });
+
+const recalcCli = program.command('recalc').description('Recalc commands');
+
+recalcCli
+  .command('add_points')
+  .argument('<address>', 'Address')
+  .argument('<batch_id>', 'Batch ID')
+  .argument('<reason>', 'Reason')
+  .argument('<points>', 'Points')
+  .argument('<points_l1>', 'Points L1')
+  .argument('<points_l2>', 'Points L2')
+  .argument('<asset_id>', 'Asset ID')
+  .action((address, batchId, reason, points, pointsL1, pointsL2, assetId) => {
+    const tx = db.transaction(() => {
+      db.prepare(
+        'INSERT INTO changes (address, batch_id, reason, points, points_l1, points_l2, asset_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(address, batchId, reason, points, pointsL1, pointsL2, assetId);
+      db.prepare(
+        'UPDATE user_points_public SET points = points + ?, points_l1 = points_l1 + ?, points_l2 = points_l2 + ? WHERE address = ? AND asset_id = ?',
+      ).run(points, pointsL1, pointsL2, address, assetId);
+    });
+    tx();
+    logger.info('Added points for address %s', address);
   });
 
 const debugCli = program.command('debug').description('Debug commands');
