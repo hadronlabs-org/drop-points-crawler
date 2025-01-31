@@ -200,7 +200,6 @@ program
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
-    console.log('log level', logger.level);
     // Get the batch ID and height of the task
     const { batchId, height, ts } = (() => {
       if (options.batch_id) {
