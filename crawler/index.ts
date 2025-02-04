@@ -460,7 +460,7 @@ program
           `
           INSERT INTO user_points_public (address, asset_id, points, change, prev_points_l1, prev_points_l2, points_l1, points_l2, place, prev_place)
           SELECT
-            address, asset_id, FLOOR(SUM(points * nft_mul)) points, SUM(points) change, 0, 0, 0, 0, 0, 0
+            address, asset_id, FLOOR(SUM(points * nft_mul)) points, FLOOR(SUM(points * nft_mul)) change, 0, 0, 0, 0, 0, 0
           FROM
             user_points
           WHERE
