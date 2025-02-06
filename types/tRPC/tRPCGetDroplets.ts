@@ -3,6 +3,7 @@ import { neutronAddress } from './neutronAddress';
 
 const tRPCGetDropletsRequestSchema = z.object({
   address: neutronAddress,
+  wave: z.optional(z.number().min(1).max(1)),
 });
 
 const tRPCGetDropletsResponseSchema = z.object({
@@ -15,6 +16,7 @@ const tRPCGetDropletsResponseSchema = z.object({
 type tRPCGetDropletsRequest = {
   input: {
     address: string;
+    wave?: number;
   };
 };
 

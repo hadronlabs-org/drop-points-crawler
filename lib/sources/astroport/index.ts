@@ -226,6 +226,7 @@ export default class AstroportSource implements SourceInterface {
     if (this.map) {
       await this.getUserMap(this.map, height);
     }
+    process.exit(-1);
     for (const [
       assetId,
       { denom, pair_contract: pairContract },
@@ -276,6 +277,7 @@ export default class AstroportSource implements SourceInterface {
         nextKey = newNextKey;
       } while (nextKey !== undefined && nextKey.length > 0);
     }
+    process.exit(-1);
   };
 
   getLastBlockHeight = async (): Promise<number> => {

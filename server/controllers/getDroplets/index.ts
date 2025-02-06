@@ -18,11 +18,14 @@ const getDroplets =
 
     let row = null;
     try {
+      const tableName = req.input.wave
+        ? `user_points_public_v${req.input.wave}`
+        : 'user_points_public';
       row = db
         .query<
           { points: number; change: number; place: number },
           [string]
-        >('SELECT sum(points + points_l1 + points_l2) as points, sum(change) as change, place FROM user_points_public WHERE address = ? GROUP BY address')
+        >(`SELECT sum(points + points_l1 + points_l2) as points, sum(change) as change, place FROM ${tableName} WHERE address = ? GROUP BY address`)
         .get(address);
     } catch (e) {
       logger.error(
