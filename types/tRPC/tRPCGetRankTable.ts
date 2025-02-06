@@ -6,9 +6,10 @@ const tRPCGetRankTableRequestSchema = z.object({
 });
 
 const rankItemSchema = z.object({
+  address: z.string().or(z.null()),
   place: z.number(),
   points: z.number(),
-  badgeType: z.enum(['bronze', 'silver', 'gold', 'platinum']),
+  badges: z.array(z.string()),
 });
 
 const tRPCGetRankTableResponseSchema = z.object({
@@ -21,12 +22,11 @@ type tRPCGetRankTableRequest = {
   };
 };
 
-type BadgeType = 'bronze' | 'silver' | 'gold' | 'platinum';
-
 type RankItem = {
+  address: string | null;
   place: number;
   points: number;
-  badgeType: BadgeType;
+  badges: string[];
 };
 
 type tRPCGetRankItemsResponse = {
@@ -39,5 +39,4 @@ export {
   tRPCGetRankTableResponseSchema,
   tRPCGetRankTableRequest,
   tRPCGetRankItemsResponse,
-  BadgeType,
 };

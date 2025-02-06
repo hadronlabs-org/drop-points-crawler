@@ -22,7 +22,14 @@ const getRankTable =
       place: number;
     };
 
+    type dbBadgeResponse = {
+      address: string;
+      badge: string;
+    };
+
     let rows: dbResponse[] | null;
+    let badges: dbBadgeResponse[] = [];
+    const badgesIndexed = new Map<string, string[]>();
     try {
       rows = db
         .query<dbResponse, [string]>(
@@ -36,8 +43,8 @@ const getRankTable =
             FROM
             (SELECT
               address,
-              (points + points_l1 + points_l2) as points,
-              place
+              place,
+              SUM(points + points_l1 + points_l2) AS points
             FROM user_points_public_v1
             GROUP BY address)
           ),
@@ -46,20 +53,35 @@ const getRankTable =
             FROM OrderedRows
             WHERE address = ?
           )
-          SELECT o.address, o.points, o.place
+          SELECT o.address, o.place, o.points
           FROM OrderedRows o
           JOIN Target t 
             ON (
-                -- if target is the first row, return rows 1,2,3
-                (t.rn = 1 AND o.rn BETWEEN 1 AND 3)
-                -- if target is the last row, return the last three rows
-              OR (t.rn = t.total_rows AND o.rn BETWEEN t.total_rows - 2 AND t.total_rows)
+                -- if target is in the first rows, return rows 1,2,3,4,5
+                (t.rn < 3 AND o.rn BETWEEN 1 AND 5)
+                -- if target is the last rows, return the last 5 rows
+              OR (t.rn > t.total_rows- 2 AND o.rn BETWEEN t.total_rows - 4 AND t.total_rows)
                 -- otherwise, return previous, current, and next rows
-              OR (t.rn > 1 AND t.rn < t.total_rows AND o.rn BETWEEN t.rn - 1 AND t.rn + 1)
+              OR (t.rn > 1 AND t.rn < t.total_rows AND o.rn BETWEEN t.rn - 2 AND t.rn + 2)
               )
-          ORDER BY o.rn`,
+          ORDER BY o.rn;`,
         )
         .all(address);
+      if (rows.length) {
+        badges = db
+          .query<
+            dbBadgeResponse,
+            null
+          >(`SELECT address, badge FROM user_badges WHERE address IN ('${rows.map((v) => v.address).join(`','`)}')`)
+          .all(null);
+        for (const badge of badges) {
+          if (badgesIndexed.has(badge.address)) {
+            badgesIndexed.get(badge.address)?.push(badge.badge);
+          } else {
+            badgesIndexed.set(badge.address, [badge.badge]);
+          }
+        }
+      }
     } catch (e) {
       logger.error(
         'Unexpected error occurred while fetching referrals: %s',
@@ -71,9 +93,14 @@ const getRankTable =
         message: 'Unexpected error occurred',
       });
     }
-    return {
-      items: rows.map((v) => ({ ...v, badgeType: 'gold' })),
+    const out = {
+      items: rows.map((v) => ({
+        ...v,
+        address: v.address === address ? v.address : null,
+        badges: badgesIndexed.get(v.address) || ['1'],
+      })),
     };
+    return out;
   };
 
 export { getRankTable };
