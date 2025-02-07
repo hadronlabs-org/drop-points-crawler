@@ -20,6 +20,7 @@ const getRankTable =
       address: string;
       points: number;
       place: number;
+      total_rows: number;
     };
 
     type dbBadgeResponse = {
@@ -53,7 +54,7 @@ const getRankTable =
             FROM OrderedRows
             WHERE address = ?
           )
-          SELECT o.address, o.place, o.points
+          SELECT o.address, o.place, o.points, t.total_rows
           FROM OrderedRows o
           JOIN Target t 
             ON (
@@ -94,6 +95,7 @@ const getRankTable =
       });
     }
     const out = {
+      totalRows: rows.length ? rows[0].total_rows : 0,
       items: rows.map((v) => ({
         ...v,
         address: v.address === address ? v.address : null,

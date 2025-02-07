@@ -14,6 +14,7 @@ const rankItemSchema = z.object({
 
 const tRPCGetRankTableResponseSchema = z.object({
   items: z.array(rankItemSchema),
+  totalRows: z.number(),
 });
 
 type tRPCGetRankTableRequest = {
