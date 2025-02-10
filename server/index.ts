@@ -74,6 +74,8 @@ import {
   tRPCGetRankTableRequestSchema,
   tRPCGetRankTableResponseSchema,
 } from '../types/tRPC/tRPCGetRankTable';
+import { getBadges } from './controllers/getBadges';
+import { tRPCGetBadgesResponseSchema } from '../types/tRPC/tRPCGetBadges';
 
 const expressApp = express();
 
@@ -141,6 +143,9 @@ const appRouter = router({
     .input(tRPCGetRankTableRequestSchema)
     .output(tRPCGetRankTableResponseSchema)
     .query(getRankTable(db, logger)),
+  getBadges: publicProcedure
+    .output(tRPCGetBadgesResponseSchema)
+    .query(getBadges(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;

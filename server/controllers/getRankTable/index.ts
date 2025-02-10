@@ -25,7 +25,7 @@ const getRankTable =
 
     type dbBadgeResponse = {
       address: string;
-      badge: string;
+      badge_id: string;
     };
 
     let rows: dbResponse[] | null;
@@ -73,13 +73,13 @@ const getRankTable =
           .query<
             dbBadgeResponse,
             null
-          >(`SELECT address, badge FROM user_badges WHERE address IN ('${rows.map((v) => v.address).join(`','`)}')`)
+          >(`SELECT address, badge_id FROM user_badges WHERE address IN ('${rows.map((v) => v.address).join(`','`)}')`)
           .all(null);
         for (const badge of badges) {
           if (badgesIndexed.has(badge.address)) {
-            badgesIndexed.get(badge.address)?.push(badge.badge);
+            badgesIndexed.get(badge.address)?.push(badge.badge_id);
           } else {
-            badgesIndexed.set(badge.address, [badge.badge]);
+            badgesIndexed.set(badge.address, [badge.badge_id]);
           }
         }
       }
@@ -99,7 +99,7 @@ const getRankTable =
       items: rows.map((v) => ({
         ...v,
         address: v.address === address ? v.address : null,
-        badges: badgesIndexed.get(v.address) || ['1'],
+        badges: badgesIndexed.get(v.address) || [],
       })),
     };
     return out;

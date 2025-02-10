@@ -32,6 +32,7 @@ type RankItem = {
 
 type tRPCGetRankItemsResponse = {
   items: RankItem[];
+  totalRows: number;
 };
 
 export {
