@@ -391,6 +391,35 @@ program
       );
       const [ts1, ts2] = query.all(batchId, batchId).map((row) => row.ts);
       tsKf = (ts1 - ts2) / (24 * 60 * 60);
+
+      if (config.stage2_start && batchId > config.stage2_start) {
+        logger.debug('Stage 2: adding newcomers');
+        const badge = db
+          .query<
+            { params: string },
+            null
+          >(`SELECT params FROM badges WHERE id = 'newcomer'`)
+          .get(null);
+        if (!badge) {
+          logger.error('Badge newcomer not found');
+          process.exit(1);
+        }
+        const badgeParams = JSON.parse(badge.params);
+        db.exec(
+          `INSERT INTO user_badges (address, badge_id, "start", "end")
+            SELECT 
+              DISTINCT address,
+              'newcomer',
+              (SELECT ts - 1 FROM batches WHERE batch_id = ${batchId}),
+              (SELECT ts + ${badgeParams.days} * 24*60*60 FROM batches WHERE batch_id = ${batchId})
+              FROM user_data 
+              WHERE 
+                user_data.batch_id = ${batchId} AND
+                address NOT IN (SELECT distinct address FROM user_badges ub  WHERE ub.badge_id ='general' OR ub.badge_id ='newcomer') AND
+                address NOT IN (SELECT distinct address FROM user_points_public)
+                `,
+        );
+      }
     } else {
       tsKf = config.default_interval / (24 * 60 * 60);
     }
