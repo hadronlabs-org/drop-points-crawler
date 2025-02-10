@@ -403,15 +403,28 @@ program
         INTO user_points (batch_id, address, asset_id, points, nft_mul)
         SELECT
           batch_id, address, xasset_id asset_id, points,
-          COALESCE(
-          	(SELECT 1 + SUM(multiplier - 1)
-          	FROM nft_data nn
-          	WHERE
-          		nn.address = x.address AND
-          		nn.batch_id = x.batch_id AND
-          		nn.asset_id = xasset_id
-          	GROUP BY address), 1
-          ) nft_mul
+          	(1 + COALESCE (
+              (SELECT 
+                SUM(multiplier - 1)
+          	  FROM nft_data nn
+              WHERE
+                nn.address = x.address AND
+                nn.batch_id = x.batch_id AND
+                nn.asset_id = xasset_id
+              GROUP BY address
+            ), 0) + COALESCE(
+             (SELECT 
+                SUM(ba.mul - 1)
+          	  FROM user_badges ub
+              LEFT JOIN badges ba ON (ba.id = ub.badge_id)
+              LEFT JOIN batches bt ON (bt.batch_id = x.batch_id)
+              WHERE
+                ub.address = x.address AND
+                ub.start <= bt.ts AND
+                ub.end >= bt.ts
+              GROUP BY address)
+            , 0))
+           nft_mul
         FROM
           (
             SELECT
