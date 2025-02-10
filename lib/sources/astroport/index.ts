@@ -226,7 +226,6 @@ export default class AstroportSource implements SourceInterface {
     if (this.map) {
       await this.getUserMap(this.map, height);
     }
-    process.exit(-1);
     for (const [
       assetId,
       { denom, pair_contract: pairContract },
