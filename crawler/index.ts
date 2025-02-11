@@ -954,6 +954,28 @@ recalcCli
     },
   );
 
+recalcCli
+  .command('remove_points')
+  .argument('<address>', 'Address')
+  .argument('<batch_id>', 'Batch ID')
+  .argument('<reason>', 'Reason')
+  .argument('<points>', 'Points')
+  .argument('<points_l1>', 'Points L1')
+  .argument('<points_l2>', 'Points L2')
+  .argument('<asset_id>', 'Asset ID')
+  .action((address, batchId, reason, points, pointsL1, pointsL2, assetId) => {
+    const tx = db.transaction(() => {
+      db.prepare(
+        'UPDATE user_points_public SET points = points - ?, points_l1 = points_l1 - ?, points_l2 = points_l2 - ? WHERE address = ? AND asset_id = ?',
+      ).run(points, pointsL1, pointsL2, address, assetId);
+      db.prepare(
+        'INSERT INTO changes (address, batch_id, reason, points, points_l1, points_l2, asset_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(address, batchId, reason, -points, -pointsL1, -pointsL2, assetId);
+    });
+    tx();
+    logger.info('Removed points for address %s', address);
+  });
+
 const debugCli = program.command('debug').description('Debug commands');
 
 debugCli
