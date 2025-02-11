@@ -17,10 +17,11 @@ import { getRules } from './controllers/getRules';
 import { getStakerStatus } from './controllers/getStakerStatus';
 import { getLogger } from '../lib/logger';
 import { getKVData } from './controllers/getKVData';
-
 import { postKVData } from './controllers/postKVData';
 import { postLink } from './controllers/postLink';
 import { postKyc } from './controllers/postKyc';
+import { getLinks } from './controllers/getLinks';
+import { uploadBadge } from './controllers/postBadge';
 
 import {
   tRPCGetDropletsRequestSchema,
@@ -68,7 +69,8 @@ import {
   tRPCGetLinksRequestSchema,
   tRPCGetLinksResponseSchema,
 } from '../types/tRPC/tRPCGetLinks';
-import { getLinks } from './controllers/getLinks';
+import { validateAwsInfo } from '../lib/validations/config';
+import { S3Service } from './aws';
 
 const expressApp = express();
 
@@ -81,7 +83,12 @@ const config = toml.parse(
 if (!config.log_level) {
   throw new Error('LOG_LEVEL environment variable not set');
 }
+validateAwsInfo(config);
+
+const s3 = new S3Service(config);
+
 const logger = getLogger(config);
+
 const db = connect(true, config, logger);
 
 const appRouter = router({
@@ -137,6 +144,10 @@ const appRouter = router({
 const port = Number(process.env.PORT) || 3000;
 
 const register = getRegistry(config, db);
+
+expressApp.use(express.json());
+expressApp.use(express.urlencoded({ extended: true }));
+expressApp.use(uploadBadge(s3, logger));
 
 expressApp.get('/metrics', async (req, res, next) => {
   res.setHeader('Content-type', register.contentType);

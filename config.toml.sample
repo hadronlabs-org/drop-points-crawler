@@ -369,3 +369,10 @@ core_contract = "neutron1r8t7mc62gtlqqe9zfur0g73ppfgulqqhlzh82r9uggca5hq2336qmv2
 [pricefeed.assets.dTIA]
 pyth_id = "09f7c1d7dfbb7df2b8fe3d3d87ee94a2259d212da4f30c1f0540d066dfa44723"
 core_contract = "neutron1r8t7mc62gtlqqe9zfur0g73ppfgulqqhlzh82r9uggca5hq2336qmv2xj0"
+
+[aws]
+enabled = true
+region = "us-east"
+access_key_id = "access_key_id"
+secret_access_key = "secret_access_key"
+bucket_name = "bucket_name"

@@ -20,4 +20,20 @@ const validateOnChainContractInfo = (config: any) => {
     throw new Error('on_chain_storage.gas is required');
 };
 
-export { validateOnChainContractInfo };
+const validateAwsInfo = (config: any) => {
+  if (!config.aws) throw new Error('aws is required');
+
+  if (!config.aws.enabled) return true;
+
+  if (!config.aws.region) throw new Error('aws.region is required');
+
+  if (!config.aws.access_key_id)
+    throw new Error('aws.access_key_id is required');
+
+  if (!config.aws.secret_access_key)
+    throw new Error('aws.secret_access_key is required');
+
+  if (!config.aws.bucket_name) throw new Error('aws.bucket_name is required');
+};
+
+export { validateOnChainContractInfo, validateAwsInfo };
