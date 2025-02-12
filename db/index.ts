@@ -86,6 +86,12 @@ export const connect = (
     db.exec(
       'CREATE TABLE IF NOT EXISTS kvstore (key TEXT PRIMARY KEY, value TEXT);',
     );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS badges (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, mul NUMERIC NOT NULL, params TEXT);',
+    );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS user_badges (address TEXT, badge_id TEXT, start NUMERIC NOT NULL, end NUMERIC NOT NULL, PRIMARY KEY(address, badge_id));',
+    );
     db.exec(`CREATE TABLE IF NOT EXISTS user_network_link (
         network TEXT NOT NULL,
         remote_address TEXT NOT NULL,

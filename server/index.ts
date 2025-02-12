@@ -69,6 +69,18 @@ import {
   tRPCGetLinksResponseSchema,
 } from '../types/tRPC/tRPCGetLinks';
 import { getLinks } from './controllers/getLinks';
+import { getRankTable } from './controllers/getRankTable';
+import {
+  tRPCGetRankTableRequestSchema,
+  tRPCGetRankTableResponseSchema,
+} from '../types/tRPC/tRPCGetRankTable';
+import { getBadges } from './controllers/getBadges';
+import { tRPCGetBadgesResponseSchema } from '../types/tRPC/tRPCGetBadges';
+import {
+  tRPCGetUserBadgesRequestSchema,
+  tRPCGetUserBadgesResponseSchema,
+} from '../types/tRPC/tRPCGetUserBadges';
+import { getUserBadges } from './controllers/getUserBadges';
 
 const expressApp = express();
 
@@ -132,6 +144,17 @@ const appRouter = router({
     .input(tRPCGetLinksRequestSchema)
     .output(tRPCGetLinksResponseSchema)
     .query(getLinks(db, logger)),
+  getRankTable: publicProcedure
+    .input(tRPCGetRankTableRequestSchema)
+    .output(tRPCGetRankTableResponseSchema)
+    .query(getRankTable(db, logger)),
+  getBadges: publicProcedure
+    .output(tRPCGetBadgesResponseSchema)
+    .query(getBadges(db, logger)),
+  getUserBadges: publicProcedure
+    .input(tRPCGetUserBadgesRequestSchema)
+    .output(tRPCGetUserBadgesResponseSchema)
+    .query(getUserBadges(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;
