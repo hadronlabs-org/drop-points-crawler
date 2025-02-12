@@ -589,7 +589,9 @@ program
 
         db.exec(
           `WITH ranked as (
-          select address, ROW_NUMBER() OVER (order by points + points_l1 + points_l2 DESC) place FROM user_points_public
+            SELECT address, ROW_NUMBER() OVER (order by points DESC) place, points FROM 
+            (SELECT address, SUM(points + points_l1 + points_l2) points FROM user_points_public GROUP BY address ORDER BY points DESC) xx
+            ORDER BY place ASC
         )
         UPDATE user_points_public
         SET
