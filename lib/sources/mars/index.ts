@@ -16,7 +16,7 @@ export default class MarsSource implements SourceInterface {
   client: Tendermint34Client | undefined;
   nftContract: string;
   creditContract: string;
-  lpToDATOMRate: Record<string, number> = {};
+  lpToBaseAssetRate: Record<string, number> = {};
 
   getClient = async () => {
     if (!this.client) {
@@ -156,7 +156,7 @@ export default class MarsSource implements SourceInterface {
         if (assetAmount) {
           return {
             balance: BigInt(
-              Math.floor(assetAmount * this.lpToDATOMRate[assetId]),
+              Math.floor(assetAmount * this.lpToBaseAssetRate[assetId]),
             ),
             boost: true,
           };
@@ -284,9 +284,10 @@ export default class MarsSource implements SourceInterface {
     return result;
   };
 
-  getAtroLpExchangeRate = async (
+  getAstroLpExchangeRate = async (
     height: number,
     contract: string,
+    baseAsset: string,
   ): Promise<number> => {
     const client = await this.getClient();
     const sim = await queryContractOnHeight<
@@ -303,13 +304,15 @@ export default class MarsSource implements SourceInterface {
         lp_amount: '1000000000',
       },
     });
-    const datomAmount = sim.find((one) =>
-      one.info?.native_token?.denom.endsWith('datom'),
+    const baseAssetAmount = sim.find((one) =>
+      one.info?.native_token?.denom.endsWith(baseAsset),
     )?.amount;
-    if (!datomAmount) {
-      throw new Error('No datom amount found');
+    if (!baseAssetAmount) {
+      throw new Error(`No ${baseAsset} amount found`);
     }
-    return Number(datomAmount) / 1000000000;
+    const out = Number(baseAssetAmount) / 1000000000;
+    this.logger.trace('Got %d exchange rate for %s', out, baseAsset);
+    return out;
   };
 
   getUsersBalances = async (
@@ -321,11 +324,12 @@ export default class MarsSource implements SourceInterface {
     let accountTokens: string[] = [];
     for (const [assetId, asset] of Object.entries(this.assets)) {
       if (asset.lp) {
-        const lpRate = await this.getAtroLpExchangeRate(
+        const lpRate = await this.getAstroLpExchangeRate(
           height,
           asset.denom.split('/')[1],
+          assetId.split('_')[0].toLowerCase(),
         );
-        this.lpToDATOMRate[assetId] = lpRate;
+        this.lpToBaseAssetRate[assetId] = lpRate;
       }
     }
     while (true) {
