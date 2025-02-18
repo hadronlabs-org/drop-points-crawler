@@ -17,6 +17,7 @@ import { validateOnChainContractInfo } from '../lib/validations/config';
 import { getValidData } from '../types/utils';
 import { dropletRuleSchema } from '../types/config/dropletRule';
 import { getPseudoRandom, getTrueRandom } from './random';
+import { getLinkRecord } from '../lib/link';
 
 const program = new Command();
 program.option('--config <config>', 'Config file path', 'config.toml');
@@ -255,24 +256,50 @@ program
         height,
         multipliers,
         (balances: UserBalance[]) => {
-          const query = db.prepare<
+          const tx = db.prepare<
             unknown,
             [number, string, string, number, string, string]
           >(
             'INSERT INTO user_data (batch_id, address, protocol_id, height, asset, balance) VALUES (?, ?, ?, ?, ?, ?);',
           );
-          const insert = db.transaction((balances) => {
+          const insert = db.transaction((balances: UserBalance[]) => {
+            let insertedCount = 0;
             for (const balance of balances) {
-              query.run(
-                batchId,
-                toNeutronAddress(balance.address),
-                protocolId,
-                height,
-                balance.asset,
-                balance.balance,
-              );
+              if (config.protocols[protocolId].linked_address_network) {
+                const localAddress = getLinkRecord(
+                  config,
+                  db,
+                  logger,
+                  protocolId,
+                  balance.address,
+                  ts,
+                );
+                logger.trace('Got linked address %o', localAddress);
+                if (localAddress) {
+                  logger.trace('Inserting linked address %s', localAddress);
+                  insertedCount += 1;
+                  tx.run(
+                    batchId,
+                    toNeutronAddress(localAddress),
+                    protocolId,
+                    height,
+                    balance.asset,
+                    balance.balance,
+                  );
+                }
+              } else {
+                insertedCount = balances.length;
+                tx.run(
+                  batchId,
+                  toNeutronAddress(balance.address),
+                  protocolId,
+                  height,
+                  balance.asset,
+                  balance.balance,
+                );
+              }
             }
-            return balances.length;
+            return insertedCount;
           });
           const res = insert(balances);
           logger.info('Inserted %d user balances', res);
@@ -288,28 +315,21 @@ program
           );
           for (const { address, asset_id, amount } of all) {
             if (config.protocols[protocolId].linked_address_network) {
-              logger.trace(
-                'Checking linked address for %s [%s] - %s',
+              const localAddress = getLinkRecord(
+                config,
+                db,
+                logger,
+                protocolId,
                 address,
-                config.protocols[protocolId].linked_address_network,
                 ts,
               );
-              const row = db
-                .query<
-                  { local_address: string },
-                  [string, string, number]
-                >('SELECT local_address FROM user_network_link WHERE upper(remote_address) = upper(?) and network = ? and ts <= ? LIMIT 1')
-                .get(
-                  address,
-                  config.protocols[protocolId].linked_address_network,
-                  ts,
-                );
-              logger.trace('Got linked address %o', row);
-              if (row) {
-                logger.trace('Inserting linked address %s', row.local_address);
+
+              logger.trace('Got linked address %o', localAddress);
+              if (localAddress) {
+                logger.trace('Inserting linked address %s', localAddress);
                 tx.run(
                   batchId,
-                  toNeutronAddress(row.local_address),
+                  toNeutronAddress(localAddress),
                   asset_id,
                   protocolId,
                   amount,
