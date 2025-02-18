@@ -42,3 +42,35 @@ export const insertLinkRecord = (
 
   return true;
 };
+
+export const getLinkRecord = (
+  config: any,
+  db: Database,
+  logger: Logger,
+  protocolId: string,
+  remoteAddress: string,
+  ts: number,
+) => {
+  logger.trace(
+    'Checking linked address for %s [%s] - %s',
+    remoteAddress,
+    config.protocols[protocolId].linked_address_network,
+    ts,
+  );
+  const row = db
+    .query<
+      { local_address: string },
+      [string, string, number]
+    >('SELECT local_address FROM user_network_link WHERE upper(remote_address) = upper(?) AND network = ? AND ts <= ? LIMIT 1')
+    .get(
+      remoteAddress,
+      config.protocols[protocolId].linked_address_network,
+      ts,
+    );
+  logger.trace('Got linked address %o', row);
+  if (row) {
+    logger.trace('Using linked address %s', row.local_address);
+    return row.local_address;
+  }
+  return null;
+};
