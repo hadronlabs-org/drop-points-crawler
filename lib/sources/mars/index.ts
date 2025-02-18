@@ -284,8 +284,9 @@ export default class MarsSource implements SourceInterface {
     return result;
   };
 
-  getAtroLpExchangeRate = async (
+  getAstroLpExchangeRate = async (
     height: number,
+    assetId: string,
     contract: string,
   ): Promise<number> => {
     const client = await this.getClient();
@@ -303,13 +304,13 @@ export default class MarsSource implements SourceInterface {
         lp_amount: '1000000000',
       },
     });
-    const datomAmount = sim.find((one) =>
-      one.info?.native_token?.denom.endsWith('datom'),
+    const dassetAmount = sim.find((one) =>
+      one.info?.native_token?.denom.endsWith(assetId.toLowerCase()),
     )?.amount;
-    if (!datomAmount) {
-      throw new Error('No datom amount found');
+    if (!dassetAmount) {
+      throw new Error(`No ${assetId.toLowerCase()} amount found`);
     }
-    return Number(datomAmount) / 1000000000;
+    return Number(dassetAmount) / 1000000000;
   };
 
   getUsersBalances = async (
@@ -321,8 +322,9 @@ export default class MarsSource implements SourceInterface {
     let accountTokens: string[] = [];
     for (const [assetId, asset] of Object.entries(this.assets)) {
       if (asset.lp) {
-        const lpRate = await this.getAtroLpExchangeRate(
+        const lpRate = await this.getAstroLpExchangeRate(
           height,
+          assetId.split('_')[0],
           asset.denom.split('/')[1],
         );
         this.lpToDATOMRate[assetId] = lpRate;
