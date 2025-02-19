@@ -10,13 +10,19 @@ import {
 const viem = require('viem');
 
 const GET_POSITIONS = gql`
-  query GetPositions($offset: Int!, $limit: Int!, $height: Int!) {
+  query GetPositions(
+    $offset: Int!
+    $limit: Int!
+    $height: Int!
+    $pool: String!
+  ) {
     positions(
       skip: $offset
       first: $limit
       orderBy: liquidity
       orderDirection: desc
       block: { number: $height }
+      where: { pool_: { id: $pool } }
     ) {
       id
       owner
@@ -38,9 +44,14 @@ const GET_POSITIONS = gql`
   }
 `;
 
+function addDecimals(a: string, b: string): number {
+  return parseFloat(a) + parseFloat(b);
+}
+
 export default class FlameSource implements SourceInterface {
-  rpc: string; // https://rpc.flame.astria.org
-  graphqlUrl: string; // https://graph-node.flame.dawn-1.astria.org/subgraphs/name/uniswap-v3-positions
+  rpc: string;
+  graphqlUrl: string;
+  pool: string;
   logger: Logger<never>;
   paginationLimit: number;
   client: any;
@@ -53,6 +64,11 @@ export default class FlameSource implements SourceInterface {
       throw new Error('No graphql_url configured in Flame params');
     }
     this.graphqlUrl = params.graphql_url;
+
+    if (!params.pool) {
+      throw new Error('No pool id configured in Flame params');
+    }
+    this.pool = params.pool;
 
     this.paginationLimit = parseInt(params.pagination_limit || '100', 10);
   }
@@ -79,12 +95,9 @@ export default class FlameSource implements SourceInterface {
     this.logger.trace('Connecting to Flame GraphQL %s', this.graphqlUrl);
     const client = new GraphQLClient(this.graphqlUrl);
 
-    const assetDeposits: Record<
-      string,
-      Array<{ address: string; deposited: string }>
-    > = {};
+    const depositMap: Record<string, Record<string, number>> = {};
     for (const assetId of Object.keys(multipliers)) {
-      assetDeposits[assetId] = [];
+      depositMap[assetId] = {};
     }
 
     let offset = 0;
@@ -101,6 +114,7 @@ export default class FlameSource implements SourceInterface {
             limit: this.paginationLimit,
             offset,
             height,
+            pool: this.pool,
           },
         );
         offset += this.paginationLimit;
@@ -132,28 +146,23 @@ export default class FlameSource implements SourceInterface {
       );
 
       positions.forEach((position: FlamePosition) => {
+        const { owner } = position;
         Object.keys(multipliers).forEach((assetId) => {
-          if (position.pool.token0.symbol === assetId) {
-            assetDeposits[assetId].push({
-              address: position.owner,
-              deposited: position.depositedToken0,
-            });
-          } else if (position.pool.token1.symbol === assetId) {
-            assetDeposits[assetId].push({
-              address: position.owner,
-              deposited: position.depositedToken1,
-            });
+          if (depositMap[assetId][owner]) {
+            depositMap[assetId][owner] += parseFloat(position.depositedToken0);
+          } else {
+            depositMap[assetId][owner] = parseFloat(position.depositedToken0);
           }
         });
       });
     }
 
-    for (const [assetId, deposits] of Object.entries(assetDeposits)) {
+    for (const [assetId, deposits] of Object.entries(depositMap)) {
       cb(
-        deposits.map(({ address, deposited }) => ({
+        Object.entries(deposits).map(([address, deposited]) => ({
           address,
           balance: (
-            (BigInt(Math.round(parseFloat(deposited) * 1_000_000)) *
+            (BigInt(Math.round(deposited * 1_000_000)) *
               BigInt(Math.round(multipliers[assetId] * 10000))) /
             BigInt(10000)
           ).toString(),
