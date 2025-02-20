@@ -1,11 +1,12 @@
+import Decimal from 'decimal.js';
 import { GraphQLClient, gql } from 'graphql-request';
 import { SourceInterface } from '../../../types/sources/source';
-import pino, { Logger } from 'pino';
+import { Logger } from 'pino';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import {
-  FlamePosition,
-  FlamePositionResponse,
-} from '../../../types/graphQL/flamePositionsResponse';
+  UniswapV3Position,
+  UniswapV3PositionResponse,
+} from '../../../types/graphQL/uniswapV3PositionsResponse';
 
 const viem = require('viem');
 
@@ -28,11 +29,15 @@ const GET_POSITIONS = gql`
       owner
       pool {
         id
+        sqrtPrice
+        tick
         token0 {
           symbol
+          decimals
         }
         token1 {
           symbol
+          decimals
         }
       }
       liquidity
@@ -40,12 +45,42 @@ const GET_POSITIONS = gql`
       depositedToken1
       withdrawnToken0
       withdrawnToken1
+      tickLower {
+        tickIdx
+        feeGrowthOutside0X128
+        feeGrowthOutside1X128
+      }
+      tickUpper {
+        tickIdx
+        feeGrowthOutside0X128
+        feeGrowthOutside1X128
+      }
     }
   }
 `;
 
-function addDecimals(a: string, b: string): number {
-  return parseFloat(a) + parseFloat(b);
+function takeUniswapHoldingsForToken0(position: UniswapV3Position): string {
+  const Q96 = new Decimal(2).pow(96);
+  const L = new Decimal(position.liquidity);
+
+  const sqrtPriceCurrent = new Decimal(position.pool.sqrtPrice).div(Q96);
+
+  const tick = new Decimal(position.pool.tick);
+  const tickUpper = new Decimal(position.tickUpper.tickIdx);
+  const sqrtPriceUpper = new Decimal(1.0001).pow(tickUpper.div(2));
+
+  if (tick.gte(tickUpper)) {
+    return '0';
+  }
+
+  const amount0 = L.mul(sqrtPriceUpper.minus(sqrtPriceCurrent)).div(
+    sqrtPriceUpper.mul(sqrtPriceCurrent),
+  );
+
+  const token0Decimals = new Decimal(10).pow(position.pool.token0.decimals);
+  const humanAmount0 = amount0.div(token0Decimals);
+
+  return humanAmount0.toFixed();
 }
 
 export default class FlameSource implements SourceInterface {
@@ -108,7 +143,7 @@ export default class FlameSource implements SourceInterface {
       });
       let graphQlResponse: any;
       try {
-        graphQlResponse = await client.request<FlamePositionResponse>(
+        graphQlResponse = await client.request<UniswapV3PositionResponse>(
           GET_POSITIONS,
           {
             limit: this.paginationLimit,
@@ -145,13 +180,16 @@ export default class FlameSource implements SourceInterface {
         positions.length,
       );
 
-      positions.forEach((position: FlamePosition) => {
+      positions.forEach((position: UniswapV3Position) => {
         const { owner } = position;
+        const currentAmount = parseFloat(
+          takeUniswapHoldingsForToken0(position),
+        );
         Object.keys(multipliers).forEach((assetId) => {
           if (depositMap[assetId][owner]) {
-            depositMap[assetId][owner] += parseFloat(position.depositedToken0);
+            depositMap[assetId][owner] += currentAmount;
           } else {
-            depositMap[assetId][owner] = parseFloat(position.depositedToken0);
+            depositMap[assetId][owner] = currentAmount;
           }
         });
       });
