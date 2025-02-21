@@ -18,6 +18,7 @@ import MilkyWaySource from './milkyway';
 import FlameSource from './flame';
 import ETHNFT from './eth-nft';
 import AgoricSource from './agoric';
+import LevanaTradeSource from './levana-trade';
 
 const out = {
   neutron: BankModuleSource,
@@ -42,5 +43,6 @@ const out = {
   'liquidity-alliance': LiquidityAllianceSource,
   'liquidity-alliance-compounder': LiquidityAllianceCompounderSource,
   'eth-nft': ETHNFT,
+  'levana-trade': LevanaTradeSource,
 };
 export default out;
