@@ -17,6 +17,7 @@ import StargazeNFT from './stargaze';
 import MilkyWaySource from './milkyway';
 import FlameSource from './flame';
 import ETHNFT from './eth-nft';
+import AgoricSource from './agoric';
 
 const out = {
   neutron: BankModuleSource,
@@ -35,6 +36,7 @@ const out = {
   pryzm: PryzmSource,
   stargaze: StargazeNFT,
   flame: FlameSource,
+  inter: AgoricSource,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,
   'liquidity-alliance': LiquidityAllianceSource,
