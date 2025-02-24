@@ -15,6 +15,7 @@ import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
 import StargazeNFT from './stargaze';
 import MilkyWaySource from './milkyway';
+import FlameSource from './flame';
 import ETHNFT from './eth-nft';
 
 const out = {
@@ -33,6 +34,7 @@ const out = {
   milkyway: MilkyWaySource,
   pryzm: PryzmSource,
   stargaze: StargazeNFT,
+  flame: FlameSource,
   'osmosis-lp': OsmosisLPSource,
   'neutron-amulet': AmuletSource,
   'liquidity-alliance': LiquidityAllianceSource,
