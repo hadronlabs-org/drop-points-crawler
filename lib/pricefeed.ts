@@ -29,6 +29,8 @@ interface PriceFeedResponse {
   };
 }
 
+const USD_TICKER = 'USD';
+
 export default class PriceFeed {
   rpc: string;
   logger: Logger<never>;
@@ -61,6 +63,12 @@ export default class PriceFeed {
 
   async getPrice(assetId: string, height: number): Promise<number> {
     this.logger.debug(`Getting price for %s at height %d`, assetId, height);
+
+    if (assetId === USD_TICKER) {
+      this.logger.debug(`Price for %s is 1`, USD_TICKER);
+      return 1;
+    }
+
     const client = await this.#getClient();
     const pythPriceResult = await queryContractOnHeight<PriceFeedResponse>(
       client,
@@ -76,6 +84,7 @@ export default class PriceFeed {
       parseInt(pythPriceResult.price_feed.price.price, 10) *
       10 ** pythPriceResult.price_feed.price.expo;
     this.logger.debug(`Got PYTH price for %s: %d`, assetId, pythPrice);
+
     const dropExchangeRateResult = await queryContractOnHeight<string>(
       client,
       this.params.assets[assetId.split('_')[0]].core_contract,
@@ -90,6 +99,7 @@ export default class PriceFeed {
       assetId,
       dropExchangeRate,
     );
+
     const result = pythPrice * dropExchangeRate;
     this.logger.debug(`Result price for %s: %d`, assetId, result);
     return result;

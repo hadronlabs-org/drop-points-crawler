@@ -11,7 +11,7 @@ type AssetsRecord = {
   pool_id: number;
 };
 export default class MilkyWaySource extends BankModuleSource<AssetsRecord> {
-  getPoolDelefations = async (
+  getPoolDelegations = async (
     height: number,
     poolId: number,
     denom: string,
@@ -64,7 +64,7 @@ export default class MilkyWaySource extends BankModuleSource<AssetsRecord> {
 
       let nextKey: Uint8Array | null = null;
       while (true) {
-        const res = await this.getPoolDelefations(
+        const res = await this.getPoolDelegations(
           height,
           asset.pool_id,
           asset.denom,
