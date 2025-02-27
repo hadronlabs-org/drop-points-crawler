@@ -454,7 +454,7 @@ program
           batch_id, address, xasset_id asset_id, points,
           	(1 + COALESCE (
               (SELECT 
-                SUM(multiplier - 1)
+                MIN(SUM(multiplier - 1),0.2)
           	  FROM nft_data nn
               WHERE
                 nn.address = x.address AND
