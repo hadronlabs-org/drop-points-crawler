@@ -24,7 +24,7 @@ const getNFTCollections =
       rows = db
         .query<{ collection: string; multiplier: number }, [string]>(
           `SELECT collection, multiplier FROM (
-            SELECT address, replace(collection, 'madscientists-osmo', 'madscientists') collection, multiplier FROM nft_data WHERE address = ? AND batch_id = (SELECT MAX(batch_id) FROM batches)
+            SELECT address, replace(replace(collection, 'madscientists-osmo-staked', 'madscientists'), 'madscientists-osmo', 'madscientists') collection, multiplier FROM nft_data WHERE address = ? AND batch_id = (SELECT MAX(batch_id) FROM batches)
           ) GROUP BY address, collection`,
         )
         .all(address);
