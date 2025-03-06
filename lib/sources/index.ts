@@ -15,6 +15,7 @@ import LiquidityAllianceSource from './liquidity-alliance';
 import AstroportCWSource from './astroport-cw';
 import StargazeNFT from './stargaze';
 import MilkyWaySource from './milkyway';
+import OsmoStakedSource from './osmo-staked';
 import FlameSource from './flame';
 import ETHNFT from './eth-nft';
 import AgoricSource from './agoric';
@@ -44,5 +45,6 @@ const out = {
   'liquidity-alliance-compounder': LiquidityAllianceCompounderSource,
   'eth-nft': ETHNFT,
   'levana-trade': LevanaTradeSource,
+  'osmo-staked': OsmoStakedSource,
 };
 export default out;
