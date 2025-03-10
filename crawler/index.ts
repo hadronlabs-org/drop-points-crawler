@@ -78,7 +78,7 @@ program
   .description('Prepare tasks for processing sources')
   .option('-t --timestamp <timestamp>', 'Timestamp to use')
   .option('-s --simulate', 'Just simulate the task')
-  .action((options) => {
+  .action(async (options) => {
     const ts = parseInt(
       options.timestamp || (Date.now() / 1000).toString(),
       10,
@@ -110,11 +110,94 @@ program
       logger.info('No protocols found in the schedule');
       return;
     }
-    const transaction = db.transaction(async () => {
-      if (options.simulate) {
-        logger.info('Inserting tasks for protocols %o', protocolsInDb);
+
+    if (options.simulate) {
+      logger.info('Inserting tasks for protocols %o', protocolsInDb);
+      return;
+    }
+
+    let timeShift = getTrueRandom();
+    if (config.random && config.random === 'pseudo') {
+      try {
+        const maxBatchId = db
+          .prepare<
+            { max_batch: number },
+            []
+          >('SELECT COALESCE(MAX(batch_id), 0) AS max_batch FROM batches')
+          .get()?.max_batch;
+        timeShift = getPseudoRandom(maxBatchId ? maxBatchId + 1 : 0);
+        logger.info(
+          'Got time shift for pseudo random: %d, batch id: %d ',
+          timeShift,
+          maxBatchId,
+        );
+      } catch (error) {
+        logger.error(
+          'Error retrieving time shift for pseudo random: %o',
+          error,
+        );
         return;
       }
+    }
+
+    const tasksData: { protocolId: string; height: number; jitter: number }[] =
+      [];
+    const assetsToGetPrice = new Set<string>();
+
+    for (const protocol of protocolsInDb) {
+      const protocolObj = config.protocols[protocol.protocol_id];
+
+      for (const assetId of Object.keys(protocolObj.assets)) {
+        assetsToGetPrice.add(assetId);
+      }
+
+      const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
+      if (!jitter) {
+        logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
+      }
+
+      if (!sources[protocolObj.source as keyof typeof sources]) {
+        logger.error('Source %s not found', protocolObj.source);
+        throw new Error('Source not found');
+      }
+
+      const SourceClass = sources[protocolObj.source as keyof typeof sources];
+      if (!SourceClass) {
+        throw new Error(`Invalid source type: ${protocolObj.source}`);
+      }
+
+      const source = new SourceClass(protocolObj.rpc, logger, protocolObj);
+      const height = await source.getLastBlockHeight();
+      logger.debug(
+        'Got height %d for protocol %s',
+        height,
+        protocol.protocol_id,
+      );
+      tasksData.push({
+        protocolId: protocol.protocol_id,
+        height: height - jitter,
+        jitter,
+      });
+    }
+
+    const priceFeed = new PriceFeed(
+      config.pricefeed.rpc,
+      logger,
+      config.pricefeed,
+    );
+    const priceFeedHeight = await priceFeed.getLastHeight();
+    logger.debug('Got pricefeed height %d', priceFeedHeight);
+    const pricesData: { assetId: string; price: number }[] = [];
+    for (const assetId of assetsToGetPrice) {
+      logger.debug('Getting price for asset %s', assetId);
+      const price = await priceFeed.getPrice(
+        assetId,
+        (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
+      );
+      pricesData.push({ assetId, price });
+    }
+
+    const transaction = db.transaction(() => {
       const queryInsertBatch = db.prepare<
         { batch_id: number },
         [number, string]
@@ -123,72 +206,29 @@ program
       if (!batchId) {
         throw new Error('Failed to insert batch');
       }
+      queryInsertBatch.finalize();
       logger.info('Inserted batch %d', batchId);
-      const pricesTx = db.prepare(
-        'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
-      );
-      const assetsToGetPrice = new Set<string>();
+
       const tasksTx = db.prepare(
         'INSERT INTO tasks (protocol_id, batch_id, height, status, jitter, ts) VALUES (?, ?, ?, ?, ?, ?)',
       );
-
-      const timeShift = // same for all protocols bc of IBC and stuff
-        config.random && config.random === 'pseudo'
-          ? getPseudoRandom(batchId)
-          : getTrueRandom();
-
-      for (const protocol of protocolsInDb) {
-        const protocolObj = config.protocols[protocol.protocol_id];
-
-        for (const assetId of Object.keys(protocolObj.assets)) {
-          assetsToGetPrice.add(assetId);
-        }
-
-        const jitter = Math.round(protocolObj.jitter * timeShift) | 0;
-        if (!jitter) {
-          logger.warn('Jitter is 0 for protocol %s', protocol.protocol_id);
-        }
-        if (!sources[protocolObj.source as keyof typeof sources]) {
-          logger.error('Source %s not found', protocolObj.source);
-          throw new Error('Source not found');
-        }
-        const SourceClass = sources[protocolObj.source as keyof typeof sources];
-        if (!SourceClass) {
-          throw new Error(`Invalid source type: ${protocolObj.source}`);
-        }
-        const source = new SourceClass(protocolObj.rpc, logger, protocolObj);
-        const height = await source.getLastBlockHeight();
-
-        logger.debug(
-          'Got height %d for protocol %s',
-          height,
-          protocol.protocol_id,
-        );
-
+      for (const task of tasksData) {
         tasksTx.run(
-          protocol.protocol_id,
+          task.protocolId,
           batchId,
-          height - jitter,
+          task.height,
           'new',
-          jitter,
+          task.jitter,
           ts,
         );
       }
       tasksTx.finalize();
-      const priceFeed = new PriceFeed(
-        config.pricefeed.rpc,
-        logger,
-        config.pricefeed,
+
+      const pricesTx = db.prepare(
+        'INSERT INTO prices (asset_id, batch_id, price, ts) VALUES (?, ?, ?, ?)',
       );
-      const priceFeedHeight = await priceFeed.getLastHeight();
-      logger.debug('Got pricefeed height %d', priceFeedHeight);
-      for (const assetId of assetsToGetPrice) {
-        logger.debug('Getting price for asset %s', assetId);
-        const price = await priceFeed.getPrice(
-          assetId,
-          (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
-        );
-        pricesTx.run(assetId, batchId, price, ts);
+      for (const priceEntry of pricesData) {
+        pricesTx.run(priceEntry.assetId, batchId, priceEntry.price, ts);
       }
       pricesTx.finalize();
     });
