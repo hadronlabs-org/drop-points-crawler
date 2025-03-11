@@ -673,6 +673,18 @@ program
   .command('publish_on_chain')
   .description('Publish points to CW20 contract')
   .action(async () => {
+    const unfinishedBatchesQuery = db.query<
+      {
+        count: number;
+      },
+      null
+    >(`SELECT count(*) as count FROM batches WHERE status = 'new'`);
+    const unfinishedBatchesCountResult = unfinishedBatchesQuery.get(null);
+    if (unfinishedBatchesCountResult?.count) {
+      logger.warn('There are unfinished batches, publish on chain is skipped');
+      return;
+    }
+
     const publicPointsQuery = db.query<
       {
         address: string;

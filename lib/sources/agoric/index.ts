@@ -93,7 +93,8 @@ export default class AgoricSource implements SourceInterface {
           if (
             'callPipe' in item.invitationSpec &&
             item.invitationSpec.callPipe[0][1][0] ===
-              `$0.Alleged: ${assetId} brand`
+              `$0.Alleged: ${assetId} brand` &&
+            item.proposal.give.Collateral
           ) {
             vaults.set(
               item.id,
