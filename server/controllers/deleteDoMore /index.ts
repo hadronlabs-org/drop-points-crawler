@@ -24,19 +24,11 @@ const deleteDoMore =
     );
 
     try {
-      const row = db
-        .query<
-          { id: number },
-          number
-        >('SELECT id FROM do_more_items WHERE id = ?')
-        .get(id);
-      if (!row) {
-        return { ok: false };
-      }
+      const res = db.exec<[number]>('DELETE FROM do_more_items WHERE id = ?', [
+        id,
+      ]);
 
-      db.exec<[number]>('DELETE FROM do_more_items WHERE id = ?', [id]);
-
-      return { ok: true };
+      return { ok: (res as unknown as { changes: number }).changes > 0 };
     } catch (e) {
       logger.error(
         'Unexpected error occurred while saving data %s',
