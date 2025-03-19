@@ -121,7 +121,9 @@ export const connect = (
     db.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS kyc_provider_id ON user_kyc (kyc_id, kyc_provider);',
     );
-
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS do_more_items (id INTEGER PRIMARY KEY AUTOINCREMENT, asset1 TEXT NOT NULL, asset2 TEXT, description TEXT NOT NULL, multiplier NUMERIC NOT NULL, apr_min NUMERIC NOT NULL, apr_max NUMERIC NOT NULL, link TEXT NOT NULL, "order" NUMBERIC NOT NULL);',
+    );
     let row = db
       .query<{ count: number }, null>('SELECT COUNT(*) as count FROM schedule')
       .get(null);
