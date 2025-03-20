@@ -81,6 +81,18 @@ import {
   tRPCGetUserBadgesResponseSchema,
 } from '../types/tRPC/tRPCGetUserBadges';
 import { getUserBadges } from './controllers/getUserBadges';
+import {
+  tRPCPostDoMoreRequestSchema,
+  tRPCPostDoMoreResponseSchema,
+} from '../types/tRPC/tRPCPostDoMore';
+import { postDoMore } from './controllers/postDoMore';
+import { tRPCGetDoMoreResponseSchema } from '../types/tRPC/tRPCGetDoMore';
+import { getDoMore } from './controllers/getDoMore';
+import {
+  tRPCDeleteDoMoreRequestSchema,
+  tRPCDeleteDoMoreResponseSchema,
+} from '../types/tRPC/tRPCDeleteDoMore';
+import { deleteDoMore } from './controllers/deleteDoMore ';
 
 const expressApp = express();
 
@@ -105,6 +117,10 @@ const appRouter = router({
     .input(tRPCPostKycRequestSchema)
     .output(tRPCPostKycResponseSchema)
     .mutation(postKyc(db, logger)),
+  postDoMore: publicProcedure
+    .input(tRPCPostDoMoreRequestSchema)
+    .output(tRPCPostDoMoreResponseSchema)
+    .mutation(postDoMore(db, logger)),
   postKVData: publicProcedure
     .input(tRPCPostKVDataRequestSchema)
     .output(tRPCPostKVDataResponseSchema)
@@ -113,6 +129,10 @@ const appRouter = router({
     .input(tRPCPostLinkRequestSchema)
     .output(tRPCPostLinkResponseSchema)
     .mutation(postLink(db, logger)),
+  deleteDoMore: publicProcedure
+    .input(tRPCDeleteDoMoreRequestSchema)
+    .output(tRPCDeleteDoMoreResponseSchema)
+    .mutation(deleteDoMore(db, logger)),
   getKVData: publicProcedure
     .input(tRPCGetKVDataRequestSchema)
     .output(tRPCGetKVDataResponseSchema)
@@ -144,6 +164,9 @@ const appRouter = router({
     .input(tRPCGetLinksRequestSchema)
     .output(tRPCGetLinksResponseSchema)
     .query(getLinks(db, logger)),
+  getDoMore: publicProcedure
+    .output(tRPCGetDoMoreResponseSchema)
+    .query(getDoMore(db, logger)),
   getRankTable: publicProcedure
     .input(tRPCGetRankTableRequestSchema)
     .output(tRPCGetRankTableResponseSchema)
