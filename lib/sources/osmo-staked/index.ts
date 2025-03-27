@@ -96,6 +96,7 @@ export default class OsmoStakedNFT extends NFTBase {
               error.message,
               error.stack,
             );
+            throw error;
           }
         }),
       ),

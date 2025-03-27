@@ -107,6 +107,7 @@ export default class StargazeNFT extends NFTBase {
         error.message,
         error.stack,
       );
+      throw error;
     }
   };
 }
