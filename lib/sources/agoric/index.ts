@@ -81,26 +81,32 @@ export default class AgoricSource implements SourceInterface {
   };
 
   findAssetVault = (walletInfo: AgoricWalletInfo, assetId: string) => {
-    if (!walletInfo || !walletInfo.values || walletInfo?.values?.length === 0) {
+    if (!walletInfo?.values?.length) {
       return null;
     }
 
+    const assetBrand = `$0.Alleged: ${assetId} brand`;
     const vaults = new Map<string, number>();
+
     for (const one of walletInfo.values) {
-      if (one.liveOffers && one.liveOffers.length > 0) {
-        for (const offer of one.liveOffers) {
-          const item = offer[1];
-          if (
-            'callPipe' in item.invitationSpec &&
-            item.invitationSpec.callPipe[0][1][0] ===
-              `$0.Alleged: ${assetId} brand` &&
-            item.proposal.give.Collateral
-          ) {
-            vaults.set(
-              item.id,
-              parseInt(item.proposal.give.Collateral.value, 10),
-            );
-          }
+      for (const offer of one.liveOffers || []) {
+        const item = offer[1];
+        if (!item) continue;
+
+        const invitationSpec = item.invitationSpec;
+        const collateral = item.proposal?.give?.Collateral;
+
+        const assetInInvitation =
+          invitationSpec?.callPipe?.[0]?.[1]?.[0] === assetBrand;
+        const assetInCollateral = collateral?.brand === assetBrand;
+        const collateralExists = collateral !== undefined;
+
+        if (
+          (assetInInvitation || assetInCollateral) &&
+          collateralExists &&
+          item.id
+        ) {
+          vaults.set(item.id, parseInt(collateral.value, 10));
         }
       }
     }
