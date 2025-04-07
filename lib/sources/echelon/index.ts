@@ -3,11 +3,14 @@ import { Logger } from 'pino';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import pLimit from 'p-limit';
-import { bcs, RESTClient } from '@initia/initia.js';
+import { bcs } from '@initia/initia.js';
+import {
+  QueryViewRequest,
+  QueryViewResponse,
+} from '@initia/initia.proto/initia/move/v1/query';
 
 export default class EchelonSource implements SourceInterface {
   rpc: string;
-  rest: string;
   module: string;
   concurrencyLimit: number;
   paginationLimit: number;
@@ -15,7 +18,6 @@ export default class EchelonSource implements SourceInterface {
   assets: Record<string, { denom: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
-  restClient: RESTClient | undefined;
 
   constructor(rpc: string, logger: Logger<never>, params: any) {
     this.logger = logger;
@@ -29,11 +31,6 @@ export default class EchelonSource implements SourceInterface {
       throw new Error('No assets configured in params');
     }
     this.assets = params.assets;
-
-    if (!params.rest) {
-      throw new Error('No rest endpoint configured in params');
-    }
-    this.rest = params.rest;
 
     if (!params.module) {
       throw new Error('No module configured in params');
@@ -52,17 +49,6 @@ export default class EchelonSource implements SourceInterface {
     return this.client;
   };
 
-  getRestClient = () => {
-    if (!this.restClient) {
-      this.restClient = new RESTClient(this.rest, {
-        chainId: 'echelon-testnet-1',
-        gasPrices: '0.15uinit',
-        gasAdjustment: '2.0',
-      });
-    }
-    return this.restClient;
-  };
-
   getLastBlockHeight = async (): Promise<number> => {
     const client = await this.getClient();
     const status = await client.status();
@@ -75,20 +61,24 @@ export default class EchelonSource implements SourceInterface {
     denom: string,
     multiplier: number,
   ) => {
-    const rest = this.getRestClient();
+    const client = await this.getClient();
 
-    const userAddressSerialized = bcs.address().serialize(address).toBase64();
-    const denomSerialized = bcs.object().serialize(denom).toBase64();
+    const path = '/initia.move.v1.Query/View';
+    const userAddressSerialized = bcs.address().serialize(address).toBytes();
+    const denomSerialized = bcs.object().serialize(denom).toBytes();
 
-    const res = await rest.move.viewFunction(
-      this.module,
-      'lending',
-      'account_coins',
-      [],
-      [userAddressSerialized, denomSerialized],
-    );
+    const request = {
+      address: this.module,
+      moduleName: 'lending',
+      functionName: 'account_coins',
+      typeArgs: [],
+      args: [userAddressSerialized, denomSerialized],
+    };
+    const data = QueryViewRequest.encode(request).finish();
+    const response = await client.abciQuery({ path, data, height });
+    const balances = QueryViewResponse.decode(response.value);
 
-    return String(Math.round(Number(res) * multiplier));
+    return String(Math.round(Number(balances.data) * multiplier));
   };
 
   // eslint-disable-next-line require-await
@@ -154,24 +144,3 @@ export default class EchelonSource implements SourceInterface {
     }
   };
 }
-
-// const logger = pino({});
-//
-// const echelon = new EchelonSource(
-//   'https://rpc-echelon-testnet-1.anvil.asia-southeast.initia.xyz',
-//   logger,
-//   {
-//     source: 'echelon',
-//     module:
-//       '0x6c7a7e7461d3971e77071c66d1cef02c8f089a2cadf41710350c6e59a9d51469',
-//     rest: 'https://rest-echelon-testnet-1.anvil.asia-southeast.initia.xyz:443',
-//     assets: {
-//       FA: {
-//         denom:
-//           '0xfd27433c0146752c2e79d8dda09c378b3c97dcdc258b62829b198c57fe11a46',
-//       },
-//     },
-//   },
-// );
-// const height = await echelon.getLastBlockHeight();
-// await echelon.getUsersBalances(height - 100, { INITIA: 1 }, () => {});
