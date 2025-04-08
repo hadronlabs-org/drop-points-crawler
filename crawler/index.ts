@@ -452,7 +452,11 @@ program
       const [ts1, ts2] = query.all(batchId, batchId).map((row) => row.ts);
       tsKf = (ts1 - ts2) / (24 * 60 * 60);
 
-      if (config.stage2_start && batchId > config.stage2_start) {
+      if (
+        config.stage2_start &&
+        batchId > config.stage2_start &&
+        batchId < config.newcomers_stake_start
+      ) {
         logger.debug('Stage 2: adding newcomers');
         const badge = db
           .query<

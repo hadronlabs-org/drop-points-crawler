@@ -64,11 +64,40 @@ export const updateReferralData = async (
     logger.info('No new KYC data');
     return;
   }
+  logger.debug('Stage 2: adding newcomers');
+  const badge = db
+    .query<
+      { params: string },
+      null
+    >(`SELECT params FROM badges WHERE id = 'newcomer'`)
+    .get(null);
+  if (!badge) {
+    logger.error('Badge newcomer not found');
+    process.exit(1);
+  }
+  const badgeParams = JSON.parse(badge.params);
   for (const one of data.userBonds.nodes) {
     logger.debug('Adding KYC data %o', one);
-    db.exec<[string, string, number, number]>(
-      'INSERT INTO referrals (referrer, referral, height, ts) VALUES (?, ?, ?, ?)',
-      [one.ref, one.id, one.height, (new Date(one.ts).getTime() / 1000) | 0],
-    );
+    const userBadge = db
+      .query<
+        { cnt: number },
+        [string, string]
+      >(`SELECT count(*) cnt FROM user_badges WHERE address = ?`)
+      .get(one.id, 'newcomer'); // if user has badges so he is not a newcomer
+
+    if (userBadge && userBadge.cnt === 0) {
+      const ts = (new Date(one.ts).getTime() / 1000) | 0;
+      db.exec<[string, string, number, number]>(
+        'INSERT INTO user_badges (address, badge_id, "start", "end") VALUES (?, ?, ?, ?)',
+        [one.id, 'newcomer', ts, ts + badgeParams.days * 24 * 60 * 60],
+      );
+    }
+
+    if (one.ref.length > 0) {
+      db.exec<[string, string, number, number]>(
+        'INSERT INTO referrals (referrer, referral, height, ts) VALUES (?, ?, ?, ?)',
+        [one.ref, one.id, one.height, (new Date(one.ts).getTime() / 1000) | 0],
+      );
+    }
   }
 };
