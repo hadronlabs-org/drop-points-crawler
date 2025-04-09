@@ -12,9 +12,11 @@ const PAGINATION_LIMIT = 100;
 
 export default class StargazeNFT extends NFTBase {
   concurrencyLimit: number;
+  paginationLimit: number;
   constructor(rpc: string, logger: Logger<never>, params: any) {
     super(rpc, logger, params);
     this.concurrencyLimit = params.concurrency_limit;
+    this.paginationLimit = params.pagination_limit || PAGINATION_LIMIT;
   }
 
   getAllTokens = async (
@@ -31,12 +33,12 @@ export default class StargazeNFT extends NFTBase {
         {
           all_tokens: {
             start_after,
-            limit: PAGINATION_LIMIT,
+            limit: this.paginationLimit,
           },
         },
       );
       out.push(...data.tokens);
-      if (data.tokens.length < PAGINATION_LIMIT) {
+      if (data.tokens.length < this.paginationLimit) {
         break;
       }
       start_after = data.tokens[data.tokens.length - 1];
