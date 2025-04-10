@@ -87,7 +87,8 @@ export default class StargazeNFT extends NFTBase {
     cb: CbOnUserTokens,
   ): Promise<void> => {
     this.logger.info(
-      'Getting users tokens on Stargaze %s %o',
+      'Getting users tokens on %s %s %o',
+      this.sourceName,
       height,
       multipliers,
     );
