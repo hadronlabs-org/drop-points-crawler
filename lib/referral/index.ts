@@ -81,9 +81,9 @@ export const updateReferralData = async (
     const userBadge = db
       .query<
         { cnt: number },
-        [string, string]
+        [string]
       >(`SELECT count(*) cnt FROM user_badges WHERE address = ?`)
-      .get(one.id, 'newcomer'); // if user has badges so he is not a newcomer
+      .get(one.id); // if user has badges so he is not a newcomer
 
     if (userBadge && userBadge.cnt === 0) {
       const ts = (new Date(one.ts).getTime() / 1000) | 0;
