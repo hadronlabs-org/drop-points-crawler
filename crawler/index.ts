@@ -1,11 +1,14 @@
 import 'dotenv/config';
 import { Command } from 'commander';
-import { connect } from '../db';
-import { getLogger } from '../lib/logger';
+import { getContext } from './context'; // this is the new shared context module
+
+const program = new Command();
+
+program
+  .option('--config <config>', 'Config file path', 'config.toml')
+  .option('--log_level <log_level>', 'Log level');
+
 import sources from '../lib/sources';
-import { UserBalance } from '../types/sources/userBalance';
-import fs from 'fs';
-import toml from 'toml';
 import { updateReferralData } from '../lib/referral';
 import { toNeutronAddress } from '../lib/neutron-address';
 import PriceFeed from '../lib/pricefeed';
@@ -13,29 +16,15 @@ import { insertKYCRecord } from '../lib/kyc';
 import { neutronAddress } from '../types/tRPC/neutronAddress';
 import { executeSetBalances } from '../lib/execute';
 import { getSigningCosmWasmClient } from '../lib/stargate';
-import { validateOnChainContractInfo } from '../lib/validations/config';
 import { getValidData } from '../types/utils';
 import { dropletRuleSchema } from '../types/config/dropletRule';
 import { getPseudoRandom, getTrueRandom } from './random';
 import { getLinkRecord } from '../lib/link';
-
-const program = new Command();
-program.option('--config <config>', 'Config file path', 'config.toml');
-
-const config = toml.parse(
-  fs.readFileSync(program.getOptionValue('config'), 'utf-8'),
-);
-
-if (!config.log_level) {
-  throw new Error('LOG_LEVEL environment variable not set');
-}
-
-validateOnChainContractInfo(config);
-
-const logger = getLogger(config);
-const db = connect(true, config, logger);
+import { UserBalance } from '../types/sources/userBalance';
+import { Database } from 'bun:sqlite';
 
 const getAssetMulsByProtocolAndBatchId = (
+  db: Database,
   protocolId: string,
   batchId: number,
 ) => {
@@ -79,6 +68,8 @@ program
   .option('-t --timestamp <timestamp>', 'Timestamp to use')
   .option('-s --simulate', 'Just simulate the task')
   .action(async (options) => {
+    const { config, logger, db } = getContext(program);
+
     const ts = parseInt(
       options.timestamp || (Date.now() / 1000).toString(),
       10,
@@ -241,6 +232,8 @@ program
   .description('Process the specified protocol')
   .option('-b --batch_id <batch_id>', 'Batch ID to process')
   .action(async (protocolId: string, options) => {
+    const { config, logger, db } = getContext(program);
+
     // Get the batch ID and height of the task
     const { batchId, height, ts } = (() => {
       if (options.batch_id) {
@@ -278,7 +271,11 @@ program
         };
       }
     })();
-    const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
+    const multipliers = getAssetMulsByProtocolAndBatchId(
+      db,
+      protocolId,
+      batchId,
+    );
     logger.info(
       'Processing task for protocol %s, height %d and batch_id %d multipliers %o',
       protocolId,
@@ -406,6 +403,8 @@ program
   .option('-b, --batch_id <batch_id>', 'batch ID  to finish')
   .option('-p --publish', 'Publish the points to the blockchain')
   .action((options) => {
+    const { config, logger, db } = getContext(program);
+
     const batchId = (() => {
       if (options.batch_id === undefined) {
         const row = db.query<{ batch_id: number }, null>(
@@ -679,6 +678,8 @@ program
   .command('publish_on_chain')
   .description('Publish points to CW20 contract')
   .action(async () => {
+    const { config, logger, db } = getContext(program);
+
     const unfinishedBatchesQuery = db.query<
       {
         count: number;
@@ -745,6 +746,8 @@ scheduleCli
   .argument('<enabled>', 'true or false')
   .option('-f --force')
   .action((protocolId, assetId, start, end, multiplier, enabled, options) => {
+    const { config, logger, db } = getContext(program);
+
     const protocolObject = config.protocols[protocolId];
     const assetObject = config.protocols[protocolId].assets[assetId];
 
@@ -836,7 +839,7 @@ scheduleCli
           logger,
         );
       } catch (e) {
-        logger.error('Cannot build valid rule for the schedule');
+        logger.error('Cannot build valid rule for the schedule: %s', e);
         return;
       }
 
@@ -864,6 +867,8 @@ scheduleCli
   .command('list')
   .description('Display the schedule')
   .action(() => {
+    const { logger, db } = getContext(program);
+
     logger.info('Schedule list');
     const query = db.query<
       {
@@ -896,6 +901,8 @@ scheduleCli
   .description('Delete a schedule')
   .argument('<schedule_id>', 'Schedule ID')
   .action((scheduleId: string) => {
+    const { logger, db } = getContext(program);
+
     logger.info('Deleting schedule');
     const id = parseInt(scheduleId, 10);
     if (isNaN(id)) {
@@ -925,6 +932,8 @@ referralCli
   .argument('<referral>', 'Address of the referral')
   .description('Add a referral')
   .action((referrer, referral) => {
+    const { logger, db } = getContext(program);
+
     logger.info('Adding referral %s -> %s', referrer, referral);
     db.prepare<null, [string, string]>(
       'INSERT INTO referrals (referrer, referral, ts) VALUES (?, ?, 0)',
@@ -936,6 +945,8 @@ referralCli
   .argument('<address>', 'Address')
   .description('List referrals')
   .action((address) => {
+    const { logger, db } = getContext(program);
+
     logger.info('Referral list');
     const query = db.query<{ address: string; referral: string }, string>(
       'SELECT * FROM referrals WHERE address = ?',
@@ -949,6 +960,7 @@ referralCli
   .command('sync')
   .description('retrieve last Referral data')
   .action(async () => {
+    const { config, logger, db } = getContext(program);
     await updateReferralData(db, config, logger);
   });
 
@@ -961,6 +973,7 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Insert address into blacklist')
   .action((address) => {
+    const { logger, db } = getContext(program);
     db.prepare('INSERT INTO blacklist (address) VALUES (?)').run(address);
     logger.info('Inserted %s into blacklist', address);
   });
@@ -970,6 +983,7 @@ blacklistCli
   .argument('<address>', 'Address')
   .description('Remove address from blacklist')
   .action((address) => {
+    const { logger, db } = getContext(program);
     db.prepare('DELETE FROM blacklist WHERE address = ?').run(address);
     logger.info('Removed %s from blacklist', address);
   });
@@ -983,6 +997,8 @@ kycCli
   .option('-i --id <kyc_id>', 'KYC id')
   .option('-c --code <code>', 'Referral code')
   .action((address, options) => {
+    const { logger, db } = getContext(program);
+
     address = neutronAddress.parse(address).toString();
     const kycId = options.id || `local_${address}`;
     const kycProvider = options.provider || 'local';
@@ -1008,6 +1024,8 @@ kycCli
   .command('get')
   .argument('<address>', 'Address')
   .action((address) => {
+    const { logger, db } = getContext(program);
+
     address = neutronAddress.parse(address).toString();
     const query = db.query<
       { kyc_id: string; kyc_provider: string; ts: number },
@@ -1049,6 +1067,8 @@ recalcCli
       assetId,
       options,
     ) => {
+      const { logger, db } = getContext(program);
+
       const tx = db.transaction(() => {
         if (options.createIfNotExists) {
           const row = db
@@ -1086,6 +1106,8 @@ recalcCli
   .argument('<points_l2>', 'Points L2')
   .argument('<asset_id>', 'Asset ID')
   .action((address, batchId, reason, points, pointsL1, pointsL2, assetId) => {
+    const { logger, db } = getContext(program);
+
     const tx = db.transaction(() => {
       db.prepare(
         'UPDATE user_points_public SET points = points - ?, points_l1 = points_l1 - ?, points_l2 = points_l2 - ? WHERE address = ? AND asset_id = ?',
@@ -1105,7 +1127,12 @@ debugCli
   .argument('<protocol_id>', 'Protocol id')
   .argument('<batch_id>', 'Batch id')
   .action((protocolId, batchId) => {
-    const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
+    const { db, logger } = getContext(program);
+    const multipliers = getAssetMulsByProtocolAndBatchId(
+      db,
+      protocolId,
+      batchId,
+    );
     logger.info('Multipliers for protocol %s: %o', protocolId, multipliers);
   });
 
@@ -1116,6 +1143,8 @@ debugCli
   .argument('<batch_id>', 'Batch id')
   .argument('<user_address>', 'User address on any chain')
   .action(async (protocolId, batchId, userAddress) => {
+    const { config, logger, db } = getContext(program);
+
     // Get the batch ID and height of the task
     logger.level = 'info';
     const row = db
@@ -1129,7 +1158,11 @@ debugCli
       throw new Error('No tasks found');
     }
     const height = row.height;
-    const multipliers = getAssetMulsByProtocolAndBatchId(protocolId, batchId);
+    const multipliers = getAssetMulsByProtocolAndBatchId(
+      db,
+      protocolId,
+      batchId,
+    );
     logger.info(
       'Getting data for protocol %s, height %d and batch_id %d multipliers %o and user %s',
       protocolId,
