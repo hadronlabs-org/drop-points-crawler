@@ -348,6 +348,9 @@ program
     }
 
     if (isNFTSource(sourceObj)) {
+      const collectionName =
+        config.protocols[protocolId].collection || protocolId;
+      console.log(collectionName);
       await sourceObj.getUsersTokens(height, multipliers, (all) => {
         const transaction = db.transaction(() => {
           const tx = db.prepare(
@@ -371,7 +374,7 @@ program
                   batchId,
                   toNeutronAddress(localAddress),
                   asset_id,
-                  protocolId,
+                  collectionName,
                   amount,
                 );
               }
@@ -380,7 +383,7 @@ program
                 batchId,
                 toNeutronAddress(address),
                 asset_id,
-                protocolId,
+                collectionName,
                 amount,
               );
             }
