@@ -16,13 +16,16 @@ export function registerCrawlAllParallelCommand(program: Command) {
 
       const scheduledProtocols = query.all(null).map((row) => row.protocol_id);
 
-      console.log(scheduledProtocols);
+      logger.debug('Scheduled protocols are: %s', scheduledProtocols);
 
       const protocols = scheduledProtocols.filter(
         (id) => id in config.protocols,
       );
 
-      console.log(protocols);
+      logger.debug(
+        'Scheduled protocols listed in the config are: %s',
+        protocols,
+      );
 
       if (!protocols.length) {
         logger.warn('No enabled protocols found in both config and schedule');
