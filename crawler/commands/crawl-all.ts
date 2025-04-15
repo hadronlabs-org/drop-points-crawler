@@ -37,11 +37,26 @@ export function registerCrawlAllParallelCommand(program: Command) {
     .action(async (options) => {
       const { config, db, logger } = getContext(program);
 
-      const query = db.query<{ protocol_id: string }, null>(
-        'SELECT DISTINCT protocol_id FROM schedule WHERE enabled = 1',
+      const ts = parseInt(
+        options.timestamp || (Date.now() / 1000).toString(),
+        10,
       );
 
-      const scheduledProtocols = query.all(null).map((row) => row.protocol_id);
+      const query = db.query<{ protocol_id: string }, [number, number]>(
+        `
+        SELECT DISTINCT protocol_id
+        FROM schedule
+        WHERE enabled = 1
+          AND (
+            (start = 0 AND end = 0)
+            OR (start < ? AND end > ?)
+          )
+        `,
+      );
+
+      const scheduledProtocols = query
+        .all(ts, ts)
+        .map((row) => row.protocol_id);
 
       logger.debug('Scheduled protocols are: %s', scheduledProtocols);
 

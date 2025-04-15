@@ -3,7 +3,7 @@ import { getContext } from '../context';
 import { getTrueRandom, getPseudoRandom } from '../random';
 import sources from '../../lib/sources';
 import PriceFeed from '../../lib/pricefeed';
-import { getNextBatchId } from "../../db/utils";
+import { getNextBatchId } from '../../db/utils';
 
 export function registerPrepareCommand(program: Command) {
   program
