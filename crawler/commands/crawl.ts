@@ -5,6 +5,7 @@ import { toNeutronAddress } from '../../lib/neutron-address';
 import { getLinkRecord } from '../../lib/link';
 import { UserBalance } from '../../types/sources/userBalance';
 import { getAssetMulsByProtocolAndBatchId } from '../../db/utils';
+import { Logger } from 'pino';
 
 function isBasicSource(
   source: any,
@@ -18,6 +19,23 @@ function isNFTSource(
   return 'getUsersTokens' in source;
 }
 
+function protocolLogger(protocolId: string, logger: Logger): Logger {
+  const prefix = `[${protocolId}]`;
+
+  return {
+    info: (...args: any[]) =>
+      logger.info(`${prefix} ${args[0]}`, ...args.slice(1)),
+    warn: (...args: any[]) =>
+      logger.warn(`${prefix} ${args[0]}`, ...args.slice(1)),
+    error: (...args: any[]) =>
+      logger.error(`${prefix} ${args[0]}`, ...args.slice(1)),
+    debug: (...args: any[]) =>
+      logger.debug(`${prefix} ${args[0]}`, ...args.slice(1)),
+    trace: (...args: any[]) =>
+      logger.trace(`${prefix} ${args[0]}`, ...args.slice(1)),
+  } as Logger;
+}
+
 export function registerCrawlCommand(program: Command) {
   program
     .command('crawl')
@@ -25,7 +43,9 @@ export function registerCrawlCommand(program: Command) {
     .description('Process the specified protocol')
     .option('-b --batch_id <batch_id>', 'Batch ID to process')
     .action(async (protocolId: string, options) => {
-      const { config, logger, db } = getContext(program);
+      const { config, logger: baseLogger, db } = getContext(program);
+
+      const logger = protocolLogger(protocolId, baseLogger);
 
       // Get the batch ID and height of the task
       const { batchId, height, ts } = (() => {
