@@ -9,6 +9,7 @@ import {
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { evmToHexDenom, toInitiaAddress } from '../../initia-address';
 import pLimit from 'p-limit';
+import { constants, Database } from 'bun:sqlite';
 
 export default class RaveSource implements SourceInterface {
   rpc: string;
@@ -19,6 +20,7 @@ export default class RaveSource implements SourceInterface {
   assets: Record<string, { denom: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
+  dbPath: string;
 
   getClient = async () => {
     if (!this.client) {
@@ -44,6 +46,11 @@ export default class RaveSource implements SourceInterface {
       throw new Error('No kToken API configured in params');
     }
     this.kTokenApi = params.ktoken_api;
+
+    if (!params.db_path) {
+      throw new Error('No database path configured in params to store users');
+    }
+    this.dbPath = params.db_path;
 
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
@@ -78,6 +85,28 @@ export default class RaveSource implements SourceInterface {
     return String(
       Math.round((Number(response.balance?.amount) / 1e18) * multiplier),
     );
+  };
+
+  fetchNewUsers = async (denom: string, limit: number, offset: number) => {
+    const db = new Database(
+      this.dbPath,
+      constants.SQLITE_OPEN_FULLMUTEX |
+        constants.SQLITE_OPEN_READWRITE |
+        constants.SQLITE_OPEN_CREATE,
+    );
+
+    const params = {
+      ktoken: evmToHexDenom(denom),
+      offset,
+      limit,
+    };
+
+    const response = await axios.get(this.kTokenApi, { params });
+
+    const queryInsertBatch = db.prepare<
+      { batch_id: number },
+      [number, string]
+    >('INSERT INTO batches (ts, status) VALUES (?, ?) RETURNING batch_id');
   };
 
   getUsers = async (denom: string, limit: number, offset: number) => {
