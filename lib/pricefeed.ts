@@ -61,7 +61,60 @@ export default class PriceFeed {
     return result.block.header.height;
   }
 
-  async getPrice(assetId: string, height: number): Promise<number> {
+  async getPricefeedOnChain(
+    assetId: string,
+    height: number,
+  ): Promise<PriceFeedResponse> {
+    const client = await this.#getClient();
+    const assetKey = assetId.split('_')[0];
+    const pythId = this.params.assets[assetKey].pyth_id;
+    return queryContractOnHeight<PriceFeedResponse>(
+      client,
+      this.params.contract,
+      height,
+      {
+        price_feed: {
+          id: pythId,
+        },
+      },
+    );
+  }
+
+  async getPriceFeedOffChain(assetId: string, ts: number) {
+    const assetKey = assetId.split('_')[0];
+    const pythId = this.params.assets[assetKey].pyth_id;
+    const url = `https://hermes.pyth.network/v2/updates/price/${ts}?ids%5B%5D=0x${pythId}`;
+
+    console.log(url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data.parsed) || data.parsed.length === 0) {
+      throw new Error('No parsed price data returned');
+    }
+
+    const feed = data.parsed[0];
+
+    console.log(feed);
+
+    return {
+      price_feed: {
+        id: feed.id,
+        price: feed.price,
+        price_ema: feed.ema_price,
+      },
+    };
+  }
+
+  async getPrice(assetId: string, height: number, ts: number): Promise<number> {
     this.logger.debug(`Getting price for %s at height %d`, assetId, height);
 
     if (assetId === USD_TICKER) {
@@ -69,17 +122,13 @@ export default class PriceFeed {
       return 1;
     }
 
+    const assetKey = assetId.split('_')[0];
+
     const client = await this.#getClient();
-    const pythPriceResult = await queryContractOnHeight<PriceFeedResponse>(
-      client,
-      this.params.contract,
-      height,
-      {
-        price_feed: {
-          id: this.params.assets[assetId.split('_')[0]].pyth_id,
-        },
-      },
-    );
+
+    const pythPriceResult = this.params.assets[assetKey].offchain
+      ? await this.getPriceFeedOffChain(assetId, ts)
+      : await this.getPricefeedOnChain(assetId, height);
     const pythPrice =
       parseInt(pythPriceResult.price_feed.price.price, 10) *
       10 ** pythPriceResult.price_feed.price.expo;
@@ -87,7 +136,7 @@ export default class PriceFeed {
 
     const dropExchangeRateResult = await queryContractOnHeight<string>(
       client,
-      this.params.assets[assetId.split('_')[0]].core_contract,
+      this.params.assets[assetKey].core_contract,
       height,
       {
         exchange_rate: {},
