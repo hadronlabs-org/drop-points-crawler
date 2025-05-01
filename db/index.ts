@@ -100,7 +100,7 @@ export const connect = (
       );
     `);
     db.exec(
-      'CREATE TABLE IF NOT EXISTS users_archive (address TEXT, source TEXT, ts NUMERIC, PRIMARY KEY(address, source));',
+      'CREATE TABLE IF NOT EXISTS users_archive (address TEXT, source TEXT, denom TEXT, ts NUMERIC, PRIMARY KEY(address, source, denom));',
     );
     db.exec(
       `CREATE UNIQUE INDEX IF NOT EXISTS user_network_link_network_IDX ON user_network_link (network,remote_address,local_address);`,
