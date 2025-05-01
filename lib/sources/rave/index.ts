@@ -87,7 +87,7 @@ export default class RaveSource implements SourceInterface {
     );
   };
 
-  fetchNewUsers = async (denom: string, limit: number, offset: number) => {
+  saveNewUsers = async (denom: string) => {
     const db = new Database(
       this.dbPath,
       constants.SQLITE_OPEN_FULLMUTEX |
@@ -95,35 +95,83 @@ export default class RaveSource implements SourceInterface {
         constants.SQLITE_OPEN_CREATE,
     );
 
-    const params = {
-      ktoken: evmToHexDenom(denom),
-      offset,
-      limit,
-    };
+    const ts = Math.floor(Date.now() / 1000);
+    const insertQuery = db.prepare<null, [string, string, string, number]>(
+      `INSERT INTO users_archive (address, source, denom, ts)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT DO NOTHING`,
+    );
 
-    const response = await axios.get(this.kTokenApi, { params });
+    let offset = 0;
+    const limit = 100;
+    db.run('BEGIN TRANSACTION');
+    try {
+      while (true) {
+        const params = {
+          ktoken: evmToHexDenom(denom),
+          offset,
+          limit,
+        };
 
-    const queryInsertBatch = db.prepare<
-      { batch_id: number },
-      [number, string]
-    >('INSERT INTO batches (ts, status) VALUES (?, ?) RETURNING batch_id');
+        let users: { Account: string }[];
+
+        try {
+          const response = await axios.get(this.kTokenApi, { params });
+          users = response.data?.data;
+          if (!Array.isArray(users) || users.length === 0) break;
+        } catch (error) {
+          this.logger.error('Error fetching kToken data:', error);
+          break;
+        }
+
+        for (const user of users) {
+          insertQuery.run(user.Account, this.sourceName, denom, ts);
+        }
+
+        if (users.length < limit) break;
+        if (offset >= 1000) break;
+        offset += limit;
+      }
+
+      db.run('COMMIT');
+    } catch (err) {
+      db.run('ROLLBACK');
+      this.logger.error('Failed to insert users into database:', err);
+      throw err;
+    } finally {
+      db.close();
+    }
   };
 
-  getUsers = async (denom: string, limit: number, offset: number) => {
-    const params = {
-      ktoken: evmToHexDenom(denom),
-      offset,
-      limit,
-    };
+  getUsersFromArchive = (
+    denom: string,
+    limit: number = 100,
+    offset: number = 0,
+  ): { address: string; source: string; ts: number }[] => {
+    const db = new Database(
+      this.dbPath,
+      constants.SQLITE_OPEN_FULLMUTEX |
+        constants.SQLITE_OPEN_READWRITE |
+        constants.SQLITE_OPEN_CREATE,
+    );
 
-    try {
-      const response = await axios.get(this.kTokenApi, { params });
-      this.logger.debug('Got %d addresses:', response.data.total);
-      return response.data.data;
-    } catch (error) {
-      this.logger.error('Error fetching kToken data:', error);
-      throw error;
-    }
+    const stmt = db.prepare(
+      `SELECT address, source, denom, ts
+     FROM users_archive
+     WHERE source = ? AND denom = ?
+     ORDER BY ts DESC
+     LIMIT ? OFFSET ?`,
+    );
+
+    const users = stmt.all('rave', denom, limit, offset) as {
+      address: string;
+      source: string;
+      denom: string;
+      ts: number;
+    }[];
+
+    db.close();
+    return users;
   };
 
   getUsersBalances = async (
@@ -132,10 +180,16 @@ export default class RaveSource implements SourceInterface {
     cb: CbOnUserBalances,
   ): Promise<void> => {
     for (const [assetId, { denom }] of Object.entries(this.assets)) {
+      await this.saveNewUsers(denom);
+
       let offset = 0;
 
       while (true) {
-        const users = await this.getUsers(denom, this.paginationLimit, offset);
+        const users = this.getUsersFromArchive(
+          denom,
+          this.paginationLimit,
+          offset,
+        );
 
         if (!users.length) {
           break;
@@ -144,17 +198,19 @@ export default class RaveSource implements SourceInterface {
 
         const withConcurrencyLimit = pLimit(this.concurrencyLimit);
         const settledResults = await Promise.allSettled(
-          users.map((user: { Account: string }) =>
-            withConcurrencyLimit(async () => ({
-              address: toInitiaAddress(user.Account),
-              balance: await this.getUserBalance(
-                toInitiaAddress(user.Account),
-                height,
-                denom,
-                multipliers[assetId],
-              ),
-              asset: assetId,
-            })),
+          users.map((user: { address: string }) =>
+            withConcurrencyLimit(async () => {
+              return {
+                address: toInitiaAddress(user.address),
+                balance: await this.getUserBalance(
+                  toInitiaAddress(user.address),
+                  height,
+                  denom,
+                  multipliers[assetId],
+                ),
+                asset: assetId,
+              };
+            }),
           ),
         );
 
@@ -184,6 +240,7 @@ export default class RaveSource implements SourceInterface {
 const logger = pino({});
 const rave = new RaveSource('https://rpc-test-initia.rave.trade', logger, {
   source: 'rave',
+  db_path: 'data.db', // root path?
   ktoken_api: 'https://vip-test-api.rave.trade/rave/kToken/list',
   assets: { RAVE: { denom: 'evm/26513cd69378889D779fD864aa5014F06b2581a6' } },
 });
