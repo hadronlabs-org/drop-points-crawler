@@ -290,27 +290,19 @@ export default class MarsSource implements SourceInterface {
     baseAsset: string,
   ): Promise<number> => {
     const client = await this.getClient();
-    const sim = await queryContractOnHeight<
-      {
-        info: {
-          native_token: {
-            denom: string;
-          };
-        };
-        amount: string;
-      }[]
-    >(client, contract, height, {
-      simulate_withdraw: {
-        lp_amount: '1000000000',
-      },
+    const sim = await queryContractOnHeight<{
+      assets: { info: { native_token: { denom: string } }; amount: string }[];
+      total_share: string;
+    }>(client, contract, height, {
+      pool: {},
     });
-    const baseAssetAmount = sim.find((one) =>
+    const baseAssetAmount = sim.assets.find((one) =>
       one.info?.native_token?.denom.endsWith(baseAsset),
     )?.amount;
     if (!baseAssetAmount) {
       throw new Error(`No ${baseAsset} amount found`);
     }
-    const out = Number(baseAssetAmount) / 1000000000;
+    const out = Number(Number(baseAssetAmount) / Number(sim.total_share));
     this.logger.trace('Got %d exchange rate for %s', out, baseAsset);
     return out;
   };
