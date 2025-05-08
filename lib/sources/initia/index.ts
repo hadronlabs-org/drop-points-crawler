@@ -4,27 +4,21 @@ import {
   QueryBalanceRequest,
   QueryBalanceResponse,
 } from 'cosmjs-types/cosmos/bank/v1beta1/query';
-import {
-  QueryAccountsRequest,
-  QueryAccountsResponse,
-} from 'cosmjs-types/cosmos/auth/v1beta1/query';
-import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination';
 import { CbOnUserBalances } from '../../../types/sources/cbOnUserBalances';
 import { SourceInterface } from '../../../types/sources/source';
-import * as protobuf from 'protobufjs';
 import pLimit from 'p-limit';
-import pino, { Logger } from 'pino';
+import { Logger } from 'pino';
+import { constants, Database } from 'bun:sqlite';
 
-export default class InitiaSource<A = { denom: string }>
-  implements SourceInterface
-{
+export default class InitiaSource implements SourceInterface {
   rpc: string;
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<string, { denom: string } & A>;
+  assets: Record<string, { denom: string }>;
   sourceName: string;
   client: Tendermint34Client | undefined;
+  dbPath: string;
 
   getClient = async () => {
     if (!this.client) {
@@ -46,62 +40,44 @@ export default class InitiaSource<A = { denom: string }>
     }
     this.sourceName = params.source;
 
+    if (!params.db_path) {
+      throw new Error('No database path configured in params to store users');
+    }
+    this.dbPath = params.db_path;
+
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '10', 10);
-    this.paginationLimit = parseInt(params.pagination_limit || '5000', 10);
+    this.paginationLimit = parseInt(params.pagination_limit || '100', 10);
   }
 
-  decodeBaseAccountProto = async (raw: Uint8Array) => {
-    const root = await protobuf.load('BaseAccount.proto');
-    const BaseAccount = root.lookupType('cosmos.auth.v1beta1.BaseAccount');
+  getAddresses = (
+    limit: number,
+    offset: number,
+  ): { remote_address: string }[] => {
+    this.logger.debug('Fetching all linked addresses');
 
-    const decoded = BaseAccount.decode(raw);
-    const object = BaseAccount.toObject(decoded, {
-      longs: String,
-      bytes: String,
-      defaults: true,
-    });
-
-    return object;
-  };
-
-  getBaseAccounts = async (
-    height: number,
-    nextKey: undefined | Uint8Array = undefined,
-  ): Promise<{
-    results: { address: string }[];
-    nextKey: undefined | Uint8Array;
-  }> => {
-    this.logger.debug('Fetching all active base account addresses');
-    const path = '/cosmos.auth.v1beta1.Query/Accounts';
-    const request = {
-      pagination: PageRequest.fromPartial({
-        limit: BigInt(this.paginationLimit),
-        key: nextKey,
-      }),
-    };
-    const client = await this.getClient();
-    const data = QueryAccountsRequest.encode(request).finish();
-    const response = await client.abciQuery({ path, data, height });
-    this.logger.trace('Got accounts response %o', response);
-    if (response.code !== 0) {
-      throw new Error(
-        `Tendermint query error: ${response.log} Code: ${response.code}`,
-      );
-    }
-    const accounts = QueryAccountsResponse.decode(response.value);
-    const baseAccounts = await Promise.all(
-      accounts.accounts
-        .filter(
-          (account) => account.typeUrl === '/cosmos.auth.v1beta1.BaseAccount',
-        )
-        .map(async (baseAccount) => {
-          const decoded = await this.decodeBaseAccountProto(baseAccount.value);
-          return { address: decoded.address };
-        }),
+    const db = new Database(
+      this.dbPath,
+      constants.SQLITE_OPEN_FULLMUTEX |
+        constants.SQLITE_OPEN_READWRITE |
+        constants.SQLITE_OPEN_CREATE,
     );
-    this.logger.debug('Got %d accounts', baseAccounts.length);
-    return { results: baseAccounts, nextKey: accounts.pagination?.nextKey };
+
+    const stmt = db.prepare(
+      `SELECT remote_address
+     FROM user_network_link
+     WHERE network = ?
+     ORDER BY ts DESC
+     LIMIT ? OFFSET ?`,
+    );
+
+    const users = stmt.all('initia', limit, offset) as {
+      remote_address: string;
+    }[];
+
+    db.close();
+
+    return users;
   };
 
   getDenomBalance = async (
@@ -153,34 +129,27 @@ export default class InitiaSource<A = { denom: string }>
     multipliers: Record<string, number>,
     cb: CbOnUserBalances,
   ): Promise<void> => {
-    let nextKey: undefined | Uint8Array = undefined;
     for (const [assetId, asset] of Object.entries(this.assets)) {
-      let count = 0;
-      do {
-        const { results: addresses, nextKey: newNextKey } =
-          await this.getBaseAccounts(height, nextKey);
+      let offset = 0;
+      while (true) {
+        const addresses = this.getAddresses(this.paginationLimit, offset);
 
-        count += addresses.length;
-        console.log(count);
+        if (addresses.length === 0) break;
+        offset += addresses.length;
 
         const withConcurrencyLimit = pLimit(this.concurrencyLimit);
         const settledResults = await Promise.allSettled(
-          addresses.map((account: { address: string }) =>
-            withConcurrencyLimit(async () => {
-              const x = {
-                address: account.address,
-                balance: await this.getDenomBalance(
-                  account.address,
-                  asset,
-                  multipliers[assetId],
-                  height,
-                ),
-                asset: assetId,
-              };
-              if (x.balance !== '0') console.log(x);
-              // console.log(x);
-              return x;
-            }),
+          addresses.map(({ remote_address }) =>
+            withConcurrencyLimit(async () => ({
+              address: remote_address,
+              balance: await this.getDenomBalance(
+                remote_address,
+                asset,
+                multipliers[assetId],
+                height,
+              ),
+              asset: assetId,
+            })),
           ),
         );
 
@@ -206,12 +175,8 @@ export default class InitiaSource<A = { denom: string }>
           ),
         );
 
-        this.logger.debug('Got next key %s', newNextKey);
-        if (!newNextKey) {
-          break;
-        }
-        nextKey = newNextKey;
-      } while (nextKey !== undefined && nextKey.length > 0);
+        this.logger.debug('Processed %d addresses', addresses.length);
+      }
       this.logger.debug(
         'Finished fetching balances for %s source',
         this.sourceName,
@@ -219,45 +184,3 @@ export default class InitiaSource<A = { denom: string }>
     }
   };
 }
-
-const logger = pino({});
-const initia = new InitiaSource('https://rpc.initia.xyz', logger, {
-  source: 'initia',
-  assets: {
-    deINIT: {
-      denom:
-        'ibc/6190D58F741F1313A7B8F07E34E5603B03C1CC4490F54474986BC97A55EADE92',
-    },
-  },
-});
-const height = await initia.getLastBlockHeight();
-await initia.getUsersBalances(height - 100, { deINIT: 1 }, () => {});
-
-// const client = await Tendermint34Client.connect('https://rpc.initia.xyz/');
-// const status = await client.status();
-// const height = status.syncInfo.latestBlockHeight;
-// console.log(height);
-// const path = '/cosmos.auth.v1beta1.Query/Accounts';
-// const request = {
-//   pagination: PageRequest.fromPartial({
-//     limit: BigInt(100),
-//     key: undefined,
-//   }),
-// };
-// const data = QueryAccountsRequest.encode(request).finish();
-// const response = await client.abciQuery({ path, data, height });
-// console.log(Object.keys(response));
-// const accounts = QueryAccountsResponse.decode(response.value);
-// console.log(Object.keys(accounts));
-//
-// const root = await protobuf.load('BaseAccount.proto');
-// const BaseAccount = root.lookupType('cosmos.auth.v1beta1.BaseAccount');
-//
-// const decoded = BaseAccount.decode(accounts.accounts[0].value);
-// const object = BaseAccount.toObject(decoded, {
-//   longs: String,
-//   bytes: String,
-//   defaults: true,
-// });
-// console.log(object);
-// console.log(accounts.accounts);

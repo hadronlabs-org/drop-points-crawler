@@ -85,8 +85,6 @@ export default class PriceFeed {
     const pythId = this.params.assets[assetKey].pyth_id;
     const url = `https://hermes.pyth.network/v2/updates/price/${ts}?ids%5B%5D=0x${pythId}`;
 
-    console.log(url);
-
     const response = await fetch(url, {
       method: 'GET',
     });
@@ -102,8 +100,6 @@ export default class PriceFeed {
     }
 
     const feed = data.parsed[0];
-
-    console.log(feed);
 
     return {
       price_feed: {
