@@ -126,6 +126,7 @@ export function registerPrepareCommand(program: Command) {
         const price = await priceFeed.getPrice(
           assetId,
           (priceFeedHeight - config.pricefeed.jitter * timeShift) | 0,
+          ts,
         );
         pricesData.push({ assetId, price });
       }
