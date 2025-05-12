@@ -20,9 +20,11 @@ import FlameSource from './flame';
 import ETHNFT from './eth-nft';
 import AgoricSource from './agoric';
 import LevanaTradeSource from './levana-trade';
+import InitiaSource from './initia';
 
 const out = {
   neutron: BankModuleSource,
+  initia: InitiaSource,
   kujira: BankModuleSource,
   mars: MarsSource,
   levana: LevanaSource,
