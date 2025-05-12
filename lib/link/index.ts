@@ -18,9 +18,10 @@ export const insertLinkRecord = (
   );
 
   try {
-    db.exec('DELETE FROM user_network_link WHERE local_address = ?', [
-      localAddress,
-    ]);
+    db.exec(
+      'DELETE FROM user_network_link WHERE local_address = ? AND network = ?',
+      [localAddress, network],
+    );
     const userKycTx = db.prepare(
       'INSERT INTO user_network_link (network, local_address, remote_address, ts) VALUES (?, ?, ?, ?)',
     );
