@@ -1,6 +1,7 @@
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { Logger } from 'pino';
 import { queryContractOnHeight } from './query';
+import assert from 'assert';
 
 /**
  * PriceFeed is a class that provides a common interface for PYTH price feed.
@@ -145,7 +146,18 @@ export default class PriceFeed {
       dropExchangeRate,
     );
 
-    const result = pythPrice * dropExchangeRate;
+    const modifyAssetPrice = this.params.assets[assetKey].usd_part
+      ? (x: number) => {
+          const usdPart = this.params.assets[assetKey].usd_part;
+          assert(
+            usdPart >= 0 && usdPart <= 1,
+            'usd_part must be between 0 and 1',
+          );
+          return x * (1 - usdPart) + usdPart;
+        }
+      : (x: number) => x;
+
+    const result = modifyAssetPrice(pythPrice) * dropExchangeRate;
     this.logger.debug(`Result price for %s: %d`, assetId, result);
     return result;
   }
