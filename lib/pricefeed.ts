@@ -153,7 +153,7 @@ export default class PriceFeed {
             usdPart >= 0 && usdPart <= 1,
             'usd_part must be between 0 and 1',
           );
-          return (x * (1 - usdPart) + usdPart) * dropExchangeRate;
+          return x * (1 - usdPart) + usdPart;
         }
       : (x: number) => x;
 
