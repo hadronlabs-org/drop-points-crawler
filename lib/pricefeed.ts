@@ -145,7 +145,14 @@ export default class PriceFeed {
       dropExchangeRate,
     );
 
-    const result = pythPrice * dropExchangeRate;
+    const modifyAssetPrice = this.params.assets[assetKey].usd_part
+      ? (x: number) => {
+          const usdPart = this.params.assets[assetKey].usd_part;
+          return (x * (1 - usdPart) + usdPart) * dropExchangeRate;
+        }
+      : (x: number) => x;
+
+    const result = modifyAssetPrice(pythPrice) * dropExchangeRate;
     this.logger.debug(`Result price for %s: %d`, assetId, result);
     return result;
   }
