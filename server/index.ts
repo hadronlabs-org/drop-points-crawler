@@ -148,7 +148,7 @@ const appRouter = router({
   getStakerStatus: publicProcedure
     .input(tRPCGetStakerStatusRequestSchema)
     .output(tRPCGetStakerStatusResponseSchema)
-    .query(getStakerStatus(config, logger)),
+    .query(getStakerStatus(db, config, logger)),
   getReferrals: publicProcedure
     .input(tRPCGetReferralsRequestSchema)
     .output(tRPCGetReferralsResponseSchema)
