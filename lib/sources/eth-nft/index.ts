@@ -57,14 +57,28 @@ export default class ETHNFT implements NFTSource {
   };
 
   getTokenOwner = async (id: number, height: bigint): Promise<string> => {
-    const owner = await this.getClient().readContract({
-      address: this.contract,
-      abi: ABI,
-      functionName: 'ownerOf',
-      args: [id],
-      blockNumber: height,
-    });
-    return owner;
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const owner = await this.getClient().readContract({
+          address: this.contract,
+          abi: ABI,
+          functionName: 'ownerOf',
+          args: [id],
+          blockNumber: height,
+        });
+        return owner;
+      } catch (err) {
+        this.logger.warn(`${attempt} attempt to get id ${id} failed: ${err}`);
+
+        if (attempt === maxAttempts) {
+          this.logger.error(`Can't get ${id} after ${maxAttempts} retries`);
+          throw err;
+        }
+        await new Promise((res) => setTimeout(res, attempt * 1000));
+      }
+    }
+    throw new Error('Unreachable');
   };
 
   getLastBlockHeight = async (): Promise<number> => {
