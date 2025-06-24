@@ -8,6 +8,7 @@ import {
   QueryViewRequest,
   QueryViewResponse,
 } from '@initia/initia.proto/initia/move/v1/query';
+import { constants, Database } from 'bun:sqlite';
 
 export default class EchelonSource implements SourceInterface {
   rpc: string;
@@ -18,6 +19,7 @@ export default class EchelonSource implements SourceInterface {
   assets: Record<string, { denom: string }> = {};
   sourceName: string;
   client: Tendermint34Client | undefined;
+  dbPath: string;
 
   constructor(rpc: string, logger: Logger<never>, params: any) {
     this.logger = logger;
@@ -37,6 +39,11 @@ export default class EchelonSource implements SourceInterface {
     }
     this.module = params.module;
 
+    if (!params.db_path) {
+      throw new Error('No database path configured in params to store users');
+    }
+    this.dbPath = params.db_path;
+
     this.rpc = rpc;
     this.concurrencyLimit = parseInt(params.concurrency_limit || '3', 10);
     this.paginationLimit = parseInt(params.paginationLimit || '100', 10);
@@ -55,6 +62,36 @@ export default class EchelonSource implements SourceInterface {
     return status.syncInfo.latestBlockHeight;
   };
 
+  getAddresses = (
+    limit: number,
+    offset: number,
+  ): { remote_address: string }[] => {
+    this.logger.debug('Fetching all linked addresses');
+
+    const db = new Database(
+      this.dbPath,
+      constants.SQLITE_OPEN_FULLMUTEX |
+        constants.SQLITE_OPEN_READWRITE |
+        constants.SQLITE_OPEN_CREATE,
+    );
+
+    const stmt = db.prepare(
+      `SELECT remote_address
+     FROM user_network_link
+     WHERE network = ?
+     ORDER BY ts DESC
+     LIMIT ? OFFSET ?`,
+    );
+
+    const users = stmt.all('initia', limit, offset) as {
+      remote_address: string;
+    }[];
+
+    db.close();
+
+    return users;
+  };
+
   getUserBalance = async (
     address: string,
     height: number,
@@ -65,27 +102,24 @@ export default class EchelonSource implements SourceInterface {
 
     const path = '/initia.move.v1.Query/View';
     const userAddressSerialized = bcs.address().serialize(address).toBytes();
-    const denomSerialized = bcs.object().serialize(denom).toBytes();
 
     const request = {
       address: this.module,
-      moduleName: 'lending',
-      functionName: 'account_coins',
+      moduleName: 'lens',
+      functionName: 'get_user_data',
       typeArgs: [],
-      args: [userAddressSerialized, denomSerialized],
+      args: [userAddressSerialized],
     };
     const data = QueryViewRequest.encode(request).finish();
     const response = await client.abciQuery({ path, data, height });
-    const balances = QueryViewResponse.decode(response.value);
+    const decodedResponse = QueryViewResponse.decode(response.value);
+    const balances = JSON.parse(decodedResponse.data);
+    const denomBalance = balances.account_coins.data.find(
+      (x: { key: string; value: string }) => x.key === denom,
+    ).value;
 
-    return String(Math.round(Number(balances.data) * multiplier));
+    return String(Math.round(Number(denomBalance) * multiplier));
   };
-
-  // eslint-disable-next-line require-await
-  getUsers = async (denom: string, limit: number, offset: number) => [
-    'init1waj5lmujv6dyqypntp3cts4gkpgnqcvr7tznyk',
-    'init1k0gcdykyhk9z7kj6c8kng5wls6l7e3xw9a42tw',
-  ];
 
   getUsersBalances = async (
     height: number,
@@ -96,20 +130,20 @@ export default class EchelonSource implements SourceInterface {
       let offset = 0;
 
       while (true) {
-        const users = await this.getUsers(denom, this.paginationLimit, offset);
+        const addresses = this.getAddresses(this.paginationLimit, offset);
 
-        if (!users.length) {
+        if (!addresses.length) {
           break;
         }
-        offset += users.length;
+        offset += addresses.length;
 
         const withConcurrencyLimit = pLimit(this.concurrencyLimit);
         const settledResults = await Promise.allSettled(
-          users.map((address) =>
+          addresses.map(({ remote_address }) =>
             withConcurrencyLimit(async () => ({
-              address: address,
+              address: remote_address,
               balance: await this.getUserBalance(
-                address,
+                remote_address,
                 height,
                 denom,
                 multipliers[assetId],
@@ -138,9 +172,13 @@ export default class EchelonSource implements SourceInterface {
           ),
         );
 
-        //TODO: remove that
-        break;
+        this.logger.debug('Processed %d addresses', addresses.length);
       }
     }
+
+    this.logger.debug(
+      'Finished fetching balances for %s source',
+      this.sourceName,
+    );
   };
 }
