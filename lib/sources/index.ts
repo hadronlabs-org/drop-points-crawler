@@ -21,6 +21,7 @@ import ETHNFT from './eth-nft';
 import AgoricSource from './agoric';
 import LevanaTradeSource from './levana-trade';
 import InitiaSource from './initia';
+import EchelonSource from './echelon';
 
 const out = {
   neutron: BankModuleSource,
@@ -48,5 +49,6 @@ const out = {
   'eth-nft': ETHNFT,
   'levana-trade': LevanaTradeSource,
   'osmo-staked': OsmoStakedSource,
+  echelon: EchelonSource,
 };
 export default out;
