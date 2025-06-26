@@ -22,6 +22,7 @@ import AgoricSource from './agoric';
 import LevanaTradeSource from './levana-trade';
 import InitiaSource from './initia';
 import EchelonSource from './echelon';
+import RaveSource from './rave';
 
 const out = {
   neutron: BankModuleSource,
@@ -50,5 +51,6 @@ const out = {
   'levana-trade': LevanaTradeSource,
   'osmo-staked': OsmoStakedSource,
   echelon: EchelonSource,
+  rave: RaveSource,
 };
 export default out;

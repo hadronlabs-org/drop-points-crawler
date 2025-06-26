@@ -92,7 +92,7 @@ import {
   tRPCDeleteDoMoreRequestSchema,
   tRPCDeleteDoMoreResponseSchema,
 } from '../types/tRPC/tRPCDeleteDoMore';
-import { deleteDoMore } from './controllers/deleteDoMore ';
+import { deleteDoMore } from './controllers/deleteDoMore';
 
 const expressApp = express();
 
