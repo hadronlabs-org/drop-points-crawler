@@ -32,9 +32,9 @@ export function registerRecalcCli(program: Command) {
             const row = db
               .query<
                 { address: string },
-                string
-              >('SELECT address FROM user_points_public WHERE address = ?')
-              .get(address);
+                [string, string]
+              >('SELECT address FROM user_points_public WHERE address = ? AND asset_id = ?')
+              .get(address, assetId);
             if (!row) {
               logger.info('Creating user %s', address);
               db.prepare(

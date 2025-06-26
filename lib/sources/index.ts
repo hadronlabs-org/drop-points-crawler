@@ -22,6 +22,7 @@ import AgoricSource from './agoric';
 import LevanaTradeSource from './levana-trade';
 import InitiaSource from './initia';
 import LockedNeutronSource from './locked-neutron';
+import EchelonSource from './echelon';
 
 const out = {
   neutron: BankModuleSource,
@@ -50,5 +51,6 @@ const out = {
   'levana-trade': LevanaTradeSource,
   'osmo-staked': OsmoStakedSource,
   'locked-neutron': LockedNeutronSource,
+  echelon: EchelonSource,
 };
 export default out;
