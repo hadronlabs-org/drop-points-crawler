@@ -21,6 +21,7 @@ import ETHNFT from './eth-nft';
 import AgoricSource from './agoric';
 import LevanaTradeSource from './levana-trade';
 import InitiaSource from './initia';
+import LockedNeutronSource from './locked-neutron';
 import EchelonSource from './echelon';
 
 const out = {
@@ -49,6 +50,7 @@ const out = {
   'eth-nft': ETHNFT,
   'levana-trade': LevanaTradeSource,
   'osmo-staked': OsmoStakedSource,
+  'locked-neutron': LockedNeutronSource,
   echelon: EchelonSource,
 };
 export default out;
