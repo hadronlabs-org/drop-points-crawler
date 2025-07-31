@@ -81,7 +81,6 @@ const getAirdropInfo =
           address: v.address === address ? v.address : null,
         })),
       };
-      console.log(out);
       return out;
     };
 
