@@ -36,7 +36,6 @@ type tRPCGetRankItemsResponse = {
 };
 
 export {
-  RankItem,
   tRPCGetRankTableRequestSchema,
   tRPCGetRankTableResponseSchema,
   tRPCGetRankTableRequest,
