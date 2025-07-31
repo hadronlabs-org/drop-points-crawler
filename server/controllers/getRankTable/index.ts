@@ -85,7 +85,7 @@ const getRankTable =
       }
     } catch (e) {
       logger.error(
-        'Unexpected error occurred while fetching referrals: %s',
+        'Unexpected error occurred while fetching rank table: %s',
         (e as Error).message,
       );
 

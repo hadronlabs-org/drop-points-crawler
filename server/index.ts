@@ -93,6 +93,11 @@ import {
   tRPCDeleteDoMoreResponseSchema,
 } from '../types/tRPC/tRPCDeleteDoMore';
 import { deleteDoMore } from './controllers/deleteDoMore';
+import { getAirdropInfo } from './controllers/getAirdropInfo';
+import {
+  tRPCGetAirdropInfoRequestSchema,
+  tRPCGetAirdropInfoResponseSchema,
+} from '../types/tRPC/tRPCGetAirdropInfo';
 
 const expressApp = express();
 
@@ -178,6 +183,10 @@ const appRouter = router({
     .input(tRPCGetUserBadgesRequestSchema)
     .output(tRPCGetUserBadgesResponseSchema)
     .query(getUserBadges(db, logger)),
+  getAirdropInfo: publicProcedure
+    .input(tRPCGetAirdropInfoRequestSchema)
+    .output(tRPCGetAirdropInfoResponseSchema)
+    .query(getAirdropInfo(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;
