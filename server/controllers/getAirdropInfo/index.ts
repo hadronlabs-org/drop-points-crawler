@@ -49,7 +49,11 @@ const getAirdropInfo =
               FROM Ranked
               WHERE address = ?
             )
-             SELECT r.address, r.total_points, r.total_rows
+             SELECT 
+                 r.address,
+                 r.rn as place,
+                 r.total_points as points, 
+                 r.total_rows
              FROM Ranked r, Target t
              WHERE
                  (t.rn < 3 AND r.rn BETWEEN 1 AND 5)
