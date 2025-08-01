@@ -12,7 +12,7 @@ const rankSchema = z.object({
 });
 
 const tRPCGetAirdropInfoResponseSchema = z.object({
-  ranking: z.array(rankSchema),
+  items: z.array(rankSchema),
   totalRows: z.number(),
 });
 
@@ -29,7 +29,7 @@ type RankItem = {
 };
 
 type tRPCGetAirdropInfoResponse = {
-  ranking: RankItem[];
+  items: RankItem[];
   totalRows: number;
 };
 

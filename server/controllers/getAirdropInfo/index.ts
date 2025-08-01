@@ -9,25 +9,28 @@ import {
 
 const getAirdropInfo =
   (db: Database, logger: Logger) =>
-    (req: tRPCGetAirdropInfoRequest): tRPCGetAirdropInfoResponse => {
-      const {
-        input: { address },
-      } = req;
+  (req: tRPCGetAirdropInfoRequest): tRPCGetAirdropInfoResponse => {
+    const {
+      input: { address },
+    } = req;
 
-      logger.debug('Receiving request to get airdrop info for address %s', address);
+    logger.debug(
+      'Receiving request to get airdrop info for address %s',
+      address,
+    );
 
-      type dbResponse = {
-        address: string;
-        points: number;
-        place: number;
-        total_rows: number;
-      };
+    type dbResponse = {
+      address: string;
+      points: number;
+      place: number;
+      total_rows: number;
+    };
 
-      let rows: dbResponse[] | null;
-      try {
-        rows = db
-          .query<dbResponse, [string]>(
-            `WITH Combined AS (
+    let rows: dbResponse[] | null;
+    try {
+      rows = db
+        .query<dbResponse, [string]>(
+          `WITH Combined AS (
               SELECT address, SUM(points + points_l1 + points_l2) AS total_points
               FROM (
                 SELECT address, points, points_l1, points_l2 FROM user_points_public
@@ -61,27 +64,27 @@ const getAirdropInfo =
                 OR (r.rn BETWEEN t.rn - 2 AND t.rn + 2)
              ORDER BY r.rn;
             `,
-          )
-          .all(address);
-      } catch (e) {
-        logger.error(
-          'Unexpected error occurred while fetching ranking: %s',
-          (e as Error).message,
-        );
+        )
+        .all(address);
+    } catch (e) {
+      logger.error(
+        'Unexpected error occurred while fetching ranking: %s',
+        (e as Error).message,
+      );
 
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Unexpected error occurred',
-        });
-      }
-      const out = {
-        totalRows: rows.length ? rows[0].total_rows : 0,
-        ranking: rows.map((v) => ({
-          ...v,
-          address: v.address === address ? v.address : null,
-        })),
-      };
-      return out;
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Unexpected error occurred',
+      });
+    }
+    const out = {
+      totalRows: rows.length ? rows[0].total_rows : 0,
+      items: rows.map((v) => ({
+        ...v,
+        address: v.address === address ? v.address : null,
+      })),
     };
+    return out;
+  };
 
 export { getAirdropInfo };
