@@ -30,40 +30,32 @@ const getAirdropInfo =
     try {
       rows = db
         .query<dbResponse, [string]>(
-          `WITH Combined AS (
-              SELECT address, SUM(points + points_l1 + points_l2) AS total_points
-              FROM (
-                SELECT address, points, points_l1, points_l2 FROM user_points_public
-                UNION ALL
-                SELECT address, points, points_l1, points_l2 FROM user_points_public_v1
-              )
-              GROUP BY address
-            ),
-            Ranked AS (
-              SELECT
-                  address,
-                  total_points,
-                  ROW_NUMBER() OVER (ORDER BY total_points DESC) AS rn,
-                  COUNT(*) OVER () AS total_rows
-              FROM Combined
-            ),
-            Target AS (
-              SELECT rn, total_rows
-              FROM Ranked
-              WHERE address = ?
-            )
-             SELECT 
-                 r.address,
-                 r.rn as place,
-                 r.total_points as points, 
-                 r.total_rows
-             FROM Ranked r, Target t
-             WHERE
-                 (t.rn < 3 AND r.rn BETWEEN 1 AND 5)
-                OR (t.rn > t.total_rows - 2 AND r.rn BETWEEN t.total_rows - 4 AND t.total_rows)
-                OR (r.rn BETWEEN t.rn - 2 AND t.rn + 2)
-             ORDER BY r.rn;
-            `,
+          `WITH Ranked AS (
+            SELECT
+              address,
+              SUM(points + points_l1 + points_l2) AS total_points,
+              ROW_NUMBER() OVER (ORDER BY SUM(points + points_l1 + points_l2) DESC) AS rn,
+              COUNT(*) OVER () AS total_rows
+            FROM user_points_public
+            GROUP BY address
+          ),
+          Target AS (
+            SELECT rn, total_rows
+            FROM Ranked
+            WHERE address = ?
+          )
+         SELECT
+           r.address,
+           r.rn AS place,
+           r.total_points AS points,
+           r.total_rows
+         FROM Ranked r, Target t
+         WHERE
+           (t.rn < 3 AND r.rn BETWEEN 1 AND 5)
+            OR (t.rn > t.total_rows - 2 AND r.rn BETWEEN t.total_rows - 4 AND t.total_rows)
+            OR (r.rn BETWEEN t.rn - 2 AND t.rn + 2)
+         ORDER BY r.rn;
+          `,
         )
         .all(address);
     } catch (e) {
