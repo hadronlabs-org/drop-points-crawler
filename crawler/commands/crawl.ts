@@ -99,7 +99,12 @@ export function registerCrawlCommand(program: Command) {
       // Processing the source
       const sourceObj = new sources[
         config.protocols[protocolId].source as keyof typeof sources
-      ](config.protocols[protocolId].rpc, logger, config.protocols[protocolId]);
+      ](
+        config.protocols[protocolId].rpc,
+        logger,
+        config.protocols[protocolId],
+        db,
+      );
 
       if (isBasicSource(sourceObj)) {
         await sourceObj.getUsersBalances(

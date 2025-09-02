@@ -23,6 +23,7 @@ import LevanaTradeSource from './levana-trade';
 import InitiaSource from './initia';
 import EchelonSource from './echelon';
 import RaveSource from './rave';
+import EthERC20Source from './eth-erc20';
 
 const out = {
   neutron: BankModuleSource,
@@ -52,5 +53,6 @@ const out = {
   'osmo-staked': OsmoStakedSource,
   echelon: EchelonSource,
   rave: RaveSource,
+  'eth-erc20': EthERC20Source,
 };
 export default out;
