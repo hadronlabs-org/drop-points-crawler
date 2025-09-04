@@ -46,7 +46,7 @@ function resolveEthRpc(config: Config, explicitRpc?: string): string {
     return config.charts.rpc;
   }
   throw new Error(
-    'Ethereum RPC endpoint not provided. Use --rpc, or set charts.rpc in config, or CHARTS_ETH_RPC/ETH_RPC environment variable.',
+    'Ethereum RPC endpoint not provided. Use --rpc, or set charts.rpc.',
   );
 }
 
