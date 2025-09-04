@@ -9,6 +9,7 @@ import { registerReferralCli } from './commands/referrals';
 import { registerKycCli } from './commands/kyc';
 import { registerRecalcCli } from './commands/recalc';
 import { registerDebugCli } from './commands/debug';
+import { registerChartsCli } from './commands/charts';
 
 const program = new Command();
 program.name('crawl').description('CLI tool for droplets processing');
@@ -26,5 +27,6 @@ registerReferralCli(program);
 registerKycCli(program);
 registerRecalcCli(program);
 registerDebugCli(program);
+registerChartsCli(program);
 
 program.parseAsync(process.argv);
