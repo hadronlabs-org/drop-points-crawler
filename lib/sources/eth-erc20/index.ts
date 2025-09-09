@@ -24,7 +24,7 @@ export default class EthERC20Source<A = { contract: string }>
   concurrencyLimit: number;
   paginationLimit: number;
   logger: Logger<never>;
-  assets: Record<string, { contract: string } & A>;
+  assets: Record<string, { contract: string; decimals: number } & A>;
   sourceName: string;
   client: any;
   db?: Database;
@@ -101,6 +101,7 @@ export default class EthERC20Source<A = { contract: string }>
     multiplier: number,
     height: number,
     addresses: string[],
+    decimals = 6,
   ): Promise<Record<string, string>> => {
     this.logger.debug(
       'Fetching ERC20 balances for %s with multiplier %s at height %d for %d addresses',
@@ -131,7 +132,8 @@ export default class EthERC20Source<A = { contract: string }>
               const adjustedBalance = (
                 (BigInt(balance.toString()) *
                   BigInt(Math.round(multiplier * 10000))) /
-                BigInt(10000)
+                BigInt(10000) /
+                BigInt(10 ** (decimals - 6))
               ).toString();
 
               results[address] = adjustedBalance;
@@ -180,7 +182,6 @@ export default class EthERC20Source<A = { contract: string }>
             offset,
             this.paginationLimit,
           );
-
           if (addresses.length === 0) {
             hasMore = false;
             break;
@@ -191,6 +192,7 @@ export default class EthERC20Source<A = { contract: string }>
             multipliers[assetId] || 1,
             height,
             addresses,
+            this.assets[assetId].decimals || 6,
           );
 
           if (Object.keys(results).length > 0) {
@@ -212,6 +214,7 @@ export default class EthERC20Source<A = { contract: string }>
             error,
           );
           hasMore = false;
+          process.exit(-1);
         }
       }
 
