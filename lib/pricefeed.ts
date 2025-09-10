@@ -153,10 +153,7 @@ export default class PriceFeed {
       return 1;
     }
 
-    if (
-      this.params['assets'][assetId].type &&
-      this.params['assets'][assetId].type === 'flat'
-    ) {
+    if (this.params['assets'][assetId].type === 'flat') {
       return this.flatPrice(assetId, height);
     }
 
