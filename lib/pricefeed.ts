@@ -111,12 +111,50 @@ export default class PriceFeed {
     };
   }
 
+  async flatPrice(assetId: string, height: number): Promise<number> {
+    this.logger.debug(
+      `Getting flat price for %s at height %d`,
+      assetId,
+      height,
+    );
+    let query = {};
+    try {
+      query = JSON.parse(this.params.assets[assetId].exchange_rate_query);
+    } catch (e) {
+      this.logger.error(
+        `Failed to parse flat_price_query for ${assetId}: ${e}`,
+      );
+      process.exit(-1);
+    }
+    const client = await this.#getClient();
+    const exchangeRateResult = await queryContractOnHeight<string>(
+      client,
+      this.params.assets[assetId].core_contract,
+      height,
+      query,
+    );
+
+    let price = 0;
+    try {
+      price = parseFloat(exchangeRateResult);
+    } catch (e) {
+      this.logger.error(`Failed to parse flat price for ${assetId}: ${e}`);
+      process.exit(-1);
+    }
+    this.logger.debug(`Got flat price for %s: %d`, assetId, price);
+    return price;
+  }
+
   async getPrice(assetId: string, height: number, ts: number): Promise<number> {
     this.logger.debug(`Getting price for %s at height %d`, assetId, height);
 
     if (assetId === USD_TICKER) {
       this.logger.debug(`Price for %s is 1`, USD_TICKER);
       return 1;
+    }
+
+    if (this.params['assets'][assetId].type === 'flat') {
+      return this.flatPrice(assetId, height);
     }
 
     const assetKey = assetId.split('_')[0];
