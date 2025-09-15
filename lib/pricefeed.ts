@@ -152,12 +152,10 @@ export default class PriceFeed {
       this.logger.debug(`Price for %s is 1`, USD_TICKER);
       return 1;
     }
-
-    if (this.params['assets'][assetId].type === 'flat') {
-      return this.flatPrice(assetId, height);
-    }
-
     const assetKey = assetId.split('_')[0];
+    if (this.params['assets'][assetKey].type === 'flat') {
+      return this.flatPrice(assetKey, height);
+    }
 
     const client = await this.#getClient();
 

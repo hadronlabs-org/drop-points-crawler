@@ -24,6 +24,7 @@ import InitiaSource from './initia';
 import EchelonSource from './echelon';
 import RaveSource from './rave';
 import EthERC20Source from './eth-erc20';
+import SupervaultSource from './supervault';
 
 const out = {
   neutron: BankModuleSource,
@@ -54,5 +55,6 @@ const out = {
   echelon: EchelonSource,
   rave: RaveSource,
   'eth-erc20': EthERC20Source,
+  supervault: SupervaultSource,
 };
 export default out;
