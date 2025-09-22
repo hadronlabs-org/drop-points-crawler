@@ -102,7 +102,7 @@ export function registerCrawlCommand(program: Command) {
       ](
         config.protocols[protocolId].rpc,
         logger,
-        config.protocols[protocolId],
+        { ...config.protocols[protocolId], batchId },
         db,
       );
 
