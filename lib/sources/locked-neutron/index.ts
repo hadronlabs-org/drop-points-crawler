@@ -87,14 +87,14 @@ export default class LockedNeutronSource implements SourceInterface {
             out[info.owner] = (out[info.owner] || 0) + adjustedAmount;
           }
         }
-        cb(
-          Object.entries(out).map(([address, balance]) => ({
-            address,
-            balance: balance.toString(),
-            asset: assetId,
-          })),
-        );
       }
+      cb(
+        Object.entries(out).map(([address, balance]) => ({
+          address,
+          balance: balance.toString(),
+          asset: assetId,
+        })),
+      );
     }
     this.logger.debug(
       'Finished fetching all balances for %s source',
