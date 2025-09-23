@@ -63,7 +63,9 @@ export default class LockedNeutronSource implements SourceInterface {
             string,
             {
               owner: string;
-              extension: { dntrn_locked: string; unlock_date: string };
+              extension: {
+                dntrn: { dntrn_locked: string; unlock_date: string };
+              };
             },
           ][]
         >(await this.getClient(), asset.contract, height, query);
@@ -72,8 +74,14 @@ export default class LockedNeutronSource implements SourceInterface {
         }
         startAfter = tokens[tokens.length - 1][0];
         for (const [, info] of tokens) {
-          const amount = parseInt(info.extension.dntrn_locked, 10);
-          if (amount > 0 && Number(info.extension.unlock_date) > blockTs) {
+          if (!info.extension.dntrn) {
+            continue;
+          }
+          const amount = parseInt(info.extension.dntrn.dntrn_locked, 10);
+          if (
+            amount > 0 &&
+            Number(info.extension.dntrn.unlock_date) > blockTs
+          ) {
             const multiplier = multipliers[assetId] || 1;
             const adjustedAmount = Math.floor(amount * multiplier);
             out[info.owner] = (out[info.owner] || 0) + adjustedAmount;
