@@ -124,6 +124,17 @@ export const connect = (
     db.exec(
       'CREATE TABLE IF NOT EXISTS do_more_items (id INTEGER PRIMARY KEY AUTOINCREMENT, asset1 TEXT NOT NULL, asset2 TEXT, description TEXT NOT NULL, multiplier NUMERIC NOT NULL, apr_min NUMERIC NOT NULL, apr_max NUMERIC NOT NULL, link TEXT NOT NULL, "order" NUMBERIC NOT NULL);',
     );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS kyc_events (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL, event_type TEXT NOT NULL, ts INTEGER NOT NULL, data TEXT);',
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS kyc_events_address_IDX ON kyc_events (address);',
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS kyc_events_event_type_IDX ON kyc_events (event_type);',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS kyc_events_ts_IDX ON kyc_events (ts);');
+
     let row = db
       .query<{ count: number }, null>('SELECT COUNT(*) as count FROM schedule')
       .get(null);

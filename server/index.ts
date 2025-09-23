@@ -21,6 +21,7 @@ import { getKVData } from './controllers/getKVData';
 import { postKVData } from './controllers/postKVData';
 import { postLink } from './controllers/postLink';
 import { postKyc } from './controllers/postKyc';
+import { postKycEvent } from './controllers/postKycEvent';
 
 import {
   tRPCGetDropletsRequestSchema,
@@ -30,6 +31,10 @@ import {
   tRPCPostKycRequestSchema,
   tRPCPostKycResponseSchema,
 } from '../types/tRPC/tRPCPostKyc';
+import {
+  tRPCPostKycEventRequestSchema,
+  tRPCPostKycEventResponseSchema,
+} from '../types/tRPC/tRPCPostKycEvent';
 import {
   tRPCGetReferralCodeRequestSchema,
   tRPCGetReferralCodeResponseSchema,
@@ -122,6 +127,10 @@ const appRouter = router({
     .input(tRPCPostKycRequestSchema)
     .output(tRPCPostKycResponseSchema)
     .mutation(postKyc(db, logger)),
+  postKycEvent: publicProcedure
+    .input(tRPCPostKycEventRequestSchema)
+    .output(tRPCPostKycEventResponseSchema)
+    .mutation(postKycEvent(db, logger)),
   postDoMore: publicProcedure
     .input(tRPCPostDoMoreRequestSchema)
     .output(tRPCPostDoMoreResponseSchema)
