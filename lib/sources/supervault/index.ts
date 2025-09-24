@@ -35,7 +35,7 @@ export default class SupervaultSource extends BankModuleSource<AssetsRecord> {
     if (index === -1) {
       this.logger.error(
         'Denom %s not found in pair %o',
-        asset.denom,
+        baseDenom,
         configRes.pair_data,
       );
       process.exit(-1);
