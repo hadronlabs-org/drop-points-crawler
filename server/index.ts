@@ -190,6 +190,7 @@ const appRouter = router({
 });
 
 const port = Number(process.env.PORT) || 3000;
+const host = Number(process.env.HOST) || 'http://0.0.0.0';
 
 const register = getRegistry(config, db);
 
@@ -222,6 +223,6 @@ expressApp.use(
   }),
 );
 
-expressApp.listen(port, () => {
-  logger.debug(`Server is running on http://localhost:${port}`);
+expressApp.listen(`${host}:${port}`, () => {
+  logger.debug(`Server is running on ${host}:${port}`);
 });
