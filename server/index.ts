@@ -214,6 +214,7 @@ expressApp.use((req, res, next) => {
     if (config.api_key) {
       if (req.headers['authorization'] !== config.api_key) {
         res.status(401).send('Unauthorized');
+        return;
       }
     } else if (req.headers['authorization']) {
       logger.info(
