@@ -78,6 +78,13 @@ export default class SupervaultSource extends BankModuleSource<AssetsRecord> {
   ): Promise<void> => {
     this.logger.debug('Supervault getUsersBalances %d', height);
     for (const [assetId, asset] of Object.entries(this.assets)) {
+      this.logger.debug(
+        'Fetching balances for %s source, asset %s at height %d, asset: %o',
+        this.sourceName,
+        assetId,
+        height,
+        asset,
+      );
       let nextKey: undefined | Uint8Array = undefined;
       const rate = await this.getPoolRate(asset.base_denom, asset, height);
 

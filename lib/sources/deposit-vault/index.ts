@@ -37,7 +37,6 @@ const ERC20_ABI = [
 
 export default class DepositVaultSource extends EthERC20Source {
   client: any;
-  db?: Database;
 
   getClient = () => {
     if (!this.client) {
