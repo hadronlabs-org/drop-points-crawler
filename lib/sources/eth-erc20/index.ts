@@ -41,7 +41,6 @@ export default class EthERC20Source<A = { contract: string }>
 
   constructor(rpc: string, logger: Logger<never>, params: any, db?: Database) {
     this.logger = logger;
-
     if (!params.assets) {
       throw new Error('No assets configured in params');
     }

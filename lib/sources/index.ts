@@ -25,6 +25,9 @@ import LockedNeutronSource from './locked-neutron';
 import EchelonSource from './echelon';
 import RaveSource from './rave';
 import EthERC20Source from './eth-erc20';
+import SupervaultSource from './supervault';
+import DepositVaultSource from './deposit-vault';
+import LPVaultSource from './lp-vault';
 
 const out = {
   neutron: BankModuleSource,
@@ -56,5 +59,8 @@ const out = {
   echelon: EchelonSource,
   rave: RaveSource,
   'eth-erc20': EthERC20Source,
+  'deposit-vault': DepositVaultSource,
+  'lp-vault': LPVaultSource,
+  supervault: SupervaultSource,
 };
 export default out;

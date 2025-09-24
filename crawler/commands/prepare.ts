@@ -99,7 +99,10 @@ export function registerPrepareCommand(program: Command) {
           throw new Error(`Invalid source type: ${protocolObj.source}`);
         }
 
-        const source = new SourceClass(protocolObj.rpc, logger, protocolObj);
+        const source = new SourceClass(protocolObj.rpc, logger, {
+          ...protocolObj,
+          batchId: -1,
+        });
         const height = await source.getLastBlockHeight();
         logger.debug(
           'Got height %d for protocol %s',
