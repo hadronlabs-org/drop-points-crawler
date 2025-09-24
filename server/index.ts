@@ -224,6 +224,6 @@ expressApp.use(
   }),
 );
 
-expressApp.listen(`${host}:${port}`, () => {
+expressApp.listen(port, () => {
   logger.debug(`Server is running on ${host}:${port}`);
 });
