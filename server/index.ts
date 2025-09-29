@@ -103,6 +103,8 @@ import {
   tRPCGetAirdropInfoRequestSchema,
   tRPCGetAirdropInfoResponseSchema,
 } from '../types/tRPC/tRPCGetAirdropInfo';
+import { tRPCGetLeaderboardInfoResponseSchema } from '../types/tRPC/tRPCGetLeaderboardInfo';
+import { getLeaderboardInfo } from './getLeaderboardInfo';
 
 const expressApp = express();
 
@@ -196,6 +198,9 @@ const appRouter = router({
     .input(tRPCGetAirdropInfoRequestSchema)
     .output(tRPCGetAirdropInfoResponseSchema)
     .query(getAirdropInfo(db, logger)),
+  getLeaderboardInfo: publicProcedure
+    .output(tRPCGetLeaderboardInfoResponseSchema)
+    .query(getLeaderboardInfo(db, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;
