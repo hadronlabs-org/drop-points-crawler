@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { neutronAddress } from './neutronAddress';
 
 const tRPCPostKycEventRequestSchema = z.object({
-  address: neutronAddress,
+  address: z.string(),
   eventType: z.string(),
   additionalData: z.any().optional(),
 });
