@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 
 import { Database } from 'bun:sqlite';
 import { Logger } from 'pino';
-import { tRPCGetLeaderboardInfoResponse } from '../../types/tRPC/tRPCGetLeaderboardInfo';
+import { tRPCGetLeaderboardInfoResponse } from '../../../types/tRPC/tRPCGetLeaderboardInfo';
 
 const getLeaderboardInfo =
   (db: Database, logger: Logger) => (): tRPCGetLeaderboardInfoResponse => {

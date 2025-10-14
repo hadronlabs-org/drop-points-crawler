@@ -104,7 +104,12 @@ import {
   tRPCGetAirdropInfoResponseSchema,
 } from '../types/tRPC/tRPCGetAirdropInfo';
 import { tRPCGetLeaderboardInfoResponseSchema } from '../types/tRPC/tRPCGetLeaderboardInfo';
-import { getLeaderboardInfo } from './getLeaderboardInfo';
+import { getLeaderboardInfo } from './controllers/getLeaderboardInfo';
+import {
+  tRPCGetTVLRequestSchema,
+  tRPCGetTVLResponseSchema,
+} from '../types/tRPC/tRPCGetTVL';
+import { getTVL } from './controllers/getTVL';
 
 const expressApp = express();
 
@@ -201,6 +206,10 @@ const appRouter = router({
   getLeaderboardInfo: publicProcedure
     .output(tRPCGetLeaderboardInfoResponseSchema)
     .query(getLeaderboardInfo(db, logger)),
+  getTVL: publicProcedure
+    .input(tRPCGetTVLRequestSchema)
+    .output(tRPCGetTVLResponseSchema)
+    .query(getTVL(config, logger)),
 });
 
 const port = Number(process.env.PORT) || 3000;

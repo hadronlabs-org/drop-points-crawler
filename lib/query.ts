@@ -14,7 +14,7 @@ import * as osmoClQuery from 'osmojs/osmosis/concentratedliquidity/v1beta1/query
 const queryContractOnHeight = async <T>(
   client: Tendermint34Client,
   address: string,
-  height: number,
+  height: number | undefined,
   query: any,
 ): Promise<T> => {
   const path = '/cosmwasm.wasm.v1.Query/SmartContractState';
